@@ -3,7 +3,7 @@ package com.example;
 import com.example.config.PropertiesLoader;
 import com.example.discord.DiscordNotifier;
 import com.example.file.DirectoryManager;
-import com.example.file.SingleTweetFileProcessor; // Import the new class
+import com.example.file.SingleTweetFileProcessor;
 import com.example.file.TweetProcessor;
 import com.example.file.TweetWriter;
 import com.example.twitter.TweetData;
@@ -56,30 +56,47 @@ public class Main {
             logger.info("Loading configuration...");
             PropertiesLoader propsLoader = new PropertiesLoader();
             String twitterBearerToken = System.getenv("TWITTER_BEARER_TOKEN");
-            String twitterUsername = System.getenv("TWITTER_USERNAME");
             String discordBotToken = System.getenv("DISCORD_BOT_TOKEN");
             String discordChannelId = propsLoader.getProperty("discord.channel.id");
 
+            // --- Load Twitter Username (Priority: Env Var > Properties) ---
+            String twitterUsername = System.getenv("TWITTER_USERNAME");
+            String usernameSource; // To log where the username came from
+            if (isNullOrEmpty(twitterUsername)) {
+                logger.info("TWITTER_USERNAME environment variable not set or empty. Checking config.properties...");
+                twitterUsername = propsLoader.getProperty("twitter.username");
+                usernameSource = "config.properties";
+            } else {
+                usernameSource = "environment variable";
+                logger.info("Using TWITTER_USERNAME from environment variable.");
+            }
+            logger.info("Twitter username set to '{}' (from {})", twitterUsername, usernameSource);
+            // --- End Load Twitter Username ---
+
+
+            // Validation (Now includes twitterUsername check)
             if (isNullOrEmpty(twitterBearerToken) || isNullOrEmpty(twitterUsername) || isNullOrEmpty(discordBotToken) || isNullOrEmpty(discordChannelId)) {
-                logger.error("Missing required configuration. Ensure TWITTER_BEARER_TOKEN, TWITTER_USERNAME, DISCORD_BOT_TOKEN env vars are set, and discord.channel.id is in config.properties.");
-                System.exit(1);
+                logger.error("Missing required configuration.");
+                logger.error("Ensure TWITTER_BEARER_TOKEN, DISCORD_BOT_TOKEN env vars are set.");
+                logger.error("Ensure TWITTER_USERNAME env var OR twitter.username in config.properties is set.");
+                logger.error("Ensure discord.channel.id is present in config.properties.");
+                System.exit(1); // Exit if config is missing
             }
             logger.info("Configuration loaded successfully.");
 
+
             // --- Service Initialization ---
             logger.info("Initializing services...");
+            // Pass the determined twitterUsername to the service
             TwitterService twitterService = new TwitterService(twitterBearerToken, twitterUsername);
             TweetWriter tweetWriter = new TweetWriter(dirManager.getInputDir());
             discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId);
 
-            // Instantiate the new single file processor
             SingleTweetFileProcessor singleFileProcessor = new SingleTweetFileProcessor(dirManager, discordNotifier);
-
-            // Instantiate the main processor, injecting the single file processor
             TweetProcessor tweetProcessor = new TweetProcessor(dirManager, singleFileProcessor);
 
             // --- Core Logic ---
-            logger.info("Fetching tweets for user: {}", twitterUsername);
+            logger.info("Fetching tweets for user: {}", twitterUsername); // Log the username being used
             List<TweetData> tweets = twitterService.fetchTimelineTweets(10);
 
             if (tweets.isEmpty()) {
@@ -91,7 +108,6 @@ public class Main {
                     tweetWriter.writeTweetToFile(tweet);
                 }
 
-                // Call the refactored processor
                 logger.info("Processing tweet files and notifying Discord...");
                 tweetProcessor.processInputFiles();
             }

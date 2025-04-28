@@ -43,7 +43,7 @@ This Java application fetches tweets (including images) from a specified user's 
 1.  Clone the repository:
     ```bash
     git clone <your-repository-url>
-    cd <repository-directory>
+    cd twitter-timeline
     ```
 2.  Compile and package the application using Maven:
     ```bash
@@ -60,16 +60,14 @@ Execute the JAR file from your terminal.
 Provide the desired absolute or relative path for the data directory (where `input`, `processed`, `failed` folders will be created) as a command-line argument:
 
 ```bash
-# Replace <jar-file-name> and <path-to-data-directory> accordingly
-java -jar target/<jar-file-name>.jar /path/to/your/data/directory
+java -jar target/twitter-discord-processor-1.0-SNAPSHOT-jar-with-dependencies.jar /path/to/your/data/directory
 ```
 
 **Option 2: Using the default data directory**
 
 If you run the JAR without any arguments, it will automatically create and use a directory named data in the same location as the JAR file itself:
 ```bash
-# Replace <jar-file-name> accordingly
-java -jar target/<jar-file-name>.jar
+java -jar target/twitter-discord-processor-1.0-SNAPSHOT-jar-with-dependencies.jar 
 ```
 
 The application will then:
