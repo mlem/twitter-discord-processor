@@ -1,0 +1,8 @@
+### get username of a specific user
+# rate limited to 1 request per 15 minutes
+# curl -H "Authorization: Bearer YOUR_BEARER_TOKEN" https://api.twitter.com/2/users/by/username/mlem86_tv
+GET https://api.twitter.com/2/users/by/username/mlem86_tv
+Authorization: Bearer {{bearer_token}}
+
+###
+
