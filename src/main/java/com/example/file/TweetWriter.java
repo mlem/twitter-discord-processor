@@ -2,6 +2,8 @@ package com.example.file;
 
 import com.example.twitter.TweetData;
 import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger; // Import Logger
+import org.slf4j.LoggerFactory; // Import LoggerFactory
 
 import java.io.File;
 import java.io.IOException;
@@ -11,35 +13,36 @@ import java.util.stream.Collectors;
 
 public class TweetWriter {
 
+    // Initialize Logger
+    private static final Logger logger = LoggerFactory.getLogger(TweetWriter.class);
     private final Path inputDirPath;
-    public static final String IMAGE_URL_SEPARATOR = ","; // Separator for image URLs in the file
+    public static final String IMAGE_URL_SEPARATOR = ","; // Make public for DiscordNotifier
 
     public TweetWriter(Path inputDirPath) {
         this.inputDirPath = inputDirPath;
+        logger.info("TweetWriter initialized for input directory: {}", inputDirPath);
     }
 
     public void writeTweetToFile(TweetData tweetData) {
         String fileName = "tweet_" + tweetData.getId() + ".txt";
         File outputFile = inputDirPath.resolve(fileName).toFile();
+        logger.debug("Preparing to write tweet {} to file: {}", tweetData.getId(), outputFile.getAbsolutePath());
 
-        // Join image URLs with a comma, handle empty list
         String imageUrlsString = tweetData.getImageUrls().isEmpty()
                 ? ""
                 : tweetData.getImageUrls().stream().collect(Collectors.joining(IMAGE_URL_SEPARATOR));
 
-        // Define lines for clarity
         String line1 = "Text: " + tweetData.getText();
         String line2 = "URL: " + tweetData.getUrl();
-        String line3 = "ImageURLs: " + imageUrlsString; // Store comma-separated URLs
-
+        String line3 = "ImageURLs: " + imageUrlsString;
         String content = String.join("\n", line1, line2, line3);
 
         try {
             FileUtils.writeStringToFile(outputFile, content, StandardCharsets.UTF_8);
-            System.out.println("Successfully wrote tweet " + tweetData.getId() + " to " + outputFile.getAbsolutePath());
+            logger.info("Successfully wrote tweet {} to {}", tweetData.getId(), outputFile.getAbsolutePath());
         } catch (IOException e) {
-            System.err.println("Failed to write tweet " + tweetData.getId() + " to file: " + e.getMessage());
-            // Handle error appropriately
+            // Log the error with stack trace
+            logger.error("Failed to write tweet {} to file {}: {}", tweetData.getId(), outputFile.getName(), e.getMessage(), e);
         }
     }
 }

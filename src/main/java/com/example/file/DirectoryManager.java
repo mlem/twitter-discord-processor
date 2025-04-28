@@ -7,19 +7,28 @@ import java.nio.file.Paths;
 
 public class DirectoryManager {
 
+    private final Path baseDir;
     private final Path inputDir;
     private final Path processedDir;
     private final Path failedDir;
+    private final Path logsDir; // Added logs directory path
 
     public DirectoryManager(String basePath) throws IOException {
-        Path base = Paths.get(basePath);
-        inputDir = base.resolve("input");
-        processedDir = base.resolve("processed");
-        failedDir = base.resolve("failed");
+        this.baseDir = Paths.get(basePath);
+        this.inputDir = baseDir.resolve("input");
+        this.processedDir = baseDir.resolve("processed");
+        this.failedDir = baseDir.resolve("failed");
+        this.logsDir = baseDir.resolve("logs"); // Resolve logs directory
 
+        // Create all directories
         Files.createDirectories(inputDir);
         Files.createDirectories(processedDir);
         Files.createDirectories(failedDir);
+        Files.createDirectories(logsDir); // Create logs directory
+    }
+
+    public Path getBaseDir() {
+        return baseDir;
     }
 
     public Path getInputDir() {
@@ -32,5 +41,9 @@ public class DirectoryManager {
 
     public Path getFailedDir() {
         return failedDir;
+    }
+
+    public Path getLogsDir() { // Getter for logs directory
+        return logsDir;
     }
 }

@@ -1,14 +1,17 @@
 package com.example.file;
 
 import com.example.discord.DiscordNotifier;
-import org.apache.commons.io.FileUtils; // Using Apache Commons IO
-import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger; // Import Logger
+import org.slf4j.LoggerFactory; // Import LoggerFactory
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
 
 public class TweetProcessor {
+
+    // Initialize Logger
+    private static final Logger logger = LoggerFactory.getLogger(TweetProcessor.class);
 
     private final File inputDir;
     private final File processedDir;
@@ -20,40 +23,56 @@ public class TweetProcessor {
         this.processedDir = directoryManager.getProcessedDir().toFile();
         this.failedDir = directoryManager.getFailedDir().toFile();
         this.discordNotifier = discordNotifier;
+        logger.info("TweetProcessor initialized. Input: {}, Processed: {}, Failed: {}",
+                inputDir.getAbsolutePath(), processedDir.getAbsolutePath(), failedDir.getAbsolutePath());
     }
 
     public void processInputFiles() {
-        System.out.println("Starting processing of files in: " + inputDir.getAbsolutePath());
-        // List files directly in the input directory (not recursively)
+        logger.info("Starting processing of files in: {}", inputDir.getAbsolutePath());
         File[] files = inputDir.listFiles();
 
-        if (files == null || files.length == 0) {
-            System.out.println("No files found in input directory.");
+        if (files == null) {
+            logger.error("Could not list files in input directory: {}. Check permissions.", inputDir.getAbsolutePath());
             return;
         }
 
-        System.out.println("Found " + files.length + " files to process.");
+        if (files.length == 0) {
+            logger.info("No files found in input directory.");
+            return;
+        }
+
+        logger.info("Found {} files to process.", files.length);
 
         for (File file : files) {
-            if (!file.isFile()) continue; // Skip directories
+            if (!file.isFile()) {
+                logger.trace("Skipping non-file item: {}", file.getName());
+                continue; // Skip directories
+            }
 
-            System.out.println("Processing file: " + file.getName());
-            boolean success = discordNotifier.consume(file);
+            logger.info("Processing file: {}", file.getName());
+            boolean success = false;
+            try {
+                success = discordNotifier.consume(file); // Attempt to consume
+            } catch (Exception e) {
+                logger.error("Exception during consumption of file {}: {}", file.getName(), e.getMessage(), e);
+                success = false; // Ensure it's marked as failed on exception
+            }
+
 
             try {
                 if (success) {
                     FileUtils.moveFileToDirectory(file, processedDir, true);
-                    System.out.println("Moved " + file.getName() + " to processed directory.");
+                    logger.info("Moved {} to processed directory.", file.getName());
                 } else {
-                    System.err.println("Processing failed for " + file.getName());
+                    logger.warn("Processing failed for {}. Moving to failed directory.", file.getName());
                     FileUtils.moveFileToDirectory(file, failedDir, true);
-                    System.out.println("Moved " + file.getName() + " to failed directory.");
+                    logger.info("Moved {} to failed directory.", file.getName());
                 }
             } catch (IOException e) {
-                System.err.println("Failed to move file " + file.getName() + ": " + e.getMessage());
-                // Consider leaving the file in input or another strategy
+                logger.error("Failed to move file {} after processing: {}", file.getName(), e.getMessage(), e);
+                // Consider leaving the file in input or another strategy if moving fails
             }
         }
-        System.out.println("Finished processing files.");
+        logger.info("Finished processing batch of files.");
     }
 }

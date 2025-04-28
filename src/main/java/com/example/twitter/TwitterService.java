@@ -3,28 +3,31 @@ package com.example.twitter;
 import io.github.redouane59.twitter.TwitterClient;
 import io.github.redouane59.twitter.dto.tweet.Tweet;
 import io.github.redouane59.twitter.dto.tweet.TweetV2;
-import io.github.redouane59.twitter.dto.tweet.entities.MediaEntity;
 import io.github.redouane59.twitter.dto.user.User;
 import io.github.redouane59.twitter.dto.tweet.TweetList;
 import io.github.redouane59.twitter.dto.endpoints.AdditionalParameters;
 import io.github.redouane59.twitter.signature.TwitterCredentials;
+import org.slf4j.Logger; // Import Logger
+import org.slf4j.LoggerFactory; // Import LoggerFactory
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class TwitterService {
+
+    // Initialize Logger for this class
+    private static final Logger logger = LoggerFactory.getLogger(TwitterService.class);
 
     private final TwitterClient twitterClient;
     private final String twitterUsername;
 
     public TwitterService(String bearerToken, String username) {
         if (bearerToken == null || username == null) {
+            logger.error("Twitter Bearer Token and Username must be provided.");
             throw new IllegalArgumentException("Twitter Bearer Token and Username must be provided.");
         }
         this.twitterUsername = username;
+        logger.info("Initializing TwitterService for user: {}", twitterUsername);
         TwitterCredentials credentials = TwitterCredentials.builder()
                 .bearerToken(bearerToken)
                 .build();
@@ -32,26 +35,34 @@ public class TwitterService {
     }
 
     public List<TweetData> fetchTimelineTweets(int maxResults) {
+        logger.info("Attempting to fetch timeline tweets for user: {}, max results: {}", twitterUsername, maxResults);
         try {
             User me = twitterClient.getUserFromUserName(twitterUsername);
             if (me == null) {
-                System.err.println("Failed to retrieve user data for username: " + twitterUsername);
+                logger.error("Failed to retrieve user data for username: {}", twitterUsername);
                 return Collections.emptyList();
             }
             String userId = me.getId();
+            logger.debug("Found user ID: {} for username: {}", userId, twitterUsername);
 
-            // Request expansions and media fields
             AdditionalParameters params = AdditionalParameters.builder()
-                    .maxResults(Math.min(maxResults, 100)) // API V2 limit is 100 for user timeline
-                    // Add tweet fields if needed, e.g., tweetFields(List.of("created_at", "public_metrics"))
+                    .maxResults(Math.min(maxResults, 100))
                     .build();
+            logger.debug("Fetching timeline with parameters: {}", params);
 
             TweetList tweetList = twitterClient.getUserTimeline(userId, params);
 
             if (tweetList == null || tweetList.getData() == null) {
-                System.out.println("No tweets found or error fetching timeline for user ID: " + userId);
+                logger.warn("No tweets found or error fetching timeline for user ID: {}", userId);
                 return Collections.emptyList();
             }
+            logger.info("Successfully fetched {} tweets from timeline.", tweetList.getData().size());
+            if (tweetList.getIncludes() != null && tweetList.getIncludes().getMedia() != null) {
+                logger.debug("Included media count: {}", tweetList.getIncludes().getMedia().size());
+            } else {
+                logger.debug("No included media found in the response.");
+            }
+
 
             List<TweetData> tweetDataList = new ArrayList<>();
             List<TweetV2.MediaEntityV2> includedMedia = (tweetList.getIncludes() != null && tweetList.getIncludes().getMedia() != null)
@@ -61,23 +72,27 @@ public class TwitterService {
                 String tweetUrl = "https://x.com/" + twitterUsername + "/status/" + tweet.getId();
                 List<String> imageUrls = new ArrayList<>();
 
-                // Check if the tweet has media attachments
                 if (tweet.getAttachments() != null && tweet.getAttachments().getMediaKeys() != null) {
                     List<String> mediaKeys = Arrays.stream(tweet.getAttachments().getMediaKeys()).toList();
+                    logger.debug("Tweet {} has media keys: {}", tweet.getId(), mediaKeys);
                     imageUrls = includedMedia.stream()
-                            .filter(media -> mediaKeys.contains(media.getId()) && "photo".equals(media.getType())) // Filter for photos matching keys
-                            .map(MediaEntity::getUrl) // Get the URL of the photo
-                            .filter(java.util.Objects::nonNull) // Ensure URL is not null
+                            .filter(media -> mediaKeys.contains(media.getKey()) && "photo".equals(media.getType()))
+                            .map(TweetV2.MediaEntityV2::getUrl)
+                            .filter(Objects::nonNull)
                             .collect(Collectors.toList());
+                    logger.debug("Extracted image URLs for tweet {}: {}", tweet.getId(), imageUrls);
+                } else {
+                    logger.debug("Tweet {} has no media attachments.", tweet.getId());
                 }
 
                 tweetDataList.add(new TweetData(tweet.getId(), tweet.getText(), tweetUrl, imageUrls));
             }
+            logger.info("Processed {} tweets into TweetData objects.", tweetDataList.size());
             return tweetDataList;
 
         } catch (Exception e) {
-            System.err.println("Error fetching Twitter timeline: " + e.getMessage());
-            e.printStackTrace(); // Consider more robust logging
+            // Log the exception with stack trace
+            logger.error("Error fetching Twitter timeline for user {}: {}", twitterUsername, e.getMessage(), e);
             return Collections.emptyList();
         }
     }

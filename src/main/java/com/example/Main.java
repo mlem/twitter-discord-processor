@@ -7,6 +7,8 @@ import com.example.file.TweetProcessor;
 import com.example.file.TweetWriter;
 import com.example.twitter.TweetData;
 import com.example.twitter.TwitterService;
+import org.slf4j.Logger; // Import Logger
+import org.slf4j.LoggerFactory; // Import LoggerFactory
 
 import java.io.File;
 import java.net.URISyntaxException;
@@ -27,6 +29,9 @@ import java.util.List;
  */
 public class Main {
 
+    // Initialize Logger for this class
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
+
     /**
      * Need to set environment variables in order to use this
      *
@@ -37,91 +42,96 @@ public class Main {
      * @param args
      */
     public static void main(String[] args) {
+        logger.info("Application starting...");
         String basePath;
 
-        // Determine base path: use argument or default to ./data relative to JAR
+        // Determine base path
         if (args.length >= 1 && args[0] != null && !args[0].trim().isEmpty()) {
             basePath = args[0];
-            System.out.println("Using provided base path: " + basePath);
+            logger.info("Using provided base path: {}", basePath);
         } else {
             try {
-                // Find the directory containing the JAR file
                 File jarFile = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                Path jarDir = jarFile.getParentFile().toPath(); // Directory containing the jar
-                Path defaultDataDir = jarDir.resolve("data"); // Default path: <jar_dir>/data
+                Path jarDir = jarFile.getParentFile().toPath();
+                Path defaultDataDir = jarDir.resolve("data");
                 basePath = defaultDataDir.toAbsolutePath().toString();
-                System.out.println("No base path provided. Using default relative to JAR: " + basePath);
-            } catch (URISyntaxException | SecurityException e) {
-                System.err.println("Error determining JAR file location for default path: " + e.getMessage());
-                // Fallback to using 'data' directory in the current working directory
+                logger.info("No base path provided. Using default relative to JAR: {}", basePath);
+            } catch (URISyntaxException | SecurityException | NullPointerException e) {
+                logger.warn("Error determining JAR file location for default path: {}. Falling back to current working directory.", e.getMessage());
                 basePath = Paths.get("data").toAbsolutePath().toString();
-                System.err.println("Falling back to default path in current working directory: " + basePath);
-                // Optional: Exit if default path determination fails critically
-                // System.err.println("Cannot determine default path. Please provide a path as an argument.");
-                // return;
-            } catch (NullPointerException e) {
-                System.err.println("Could not determine code source location (maybe running from IDE?).");
-                // Fallback to using 'data' directory in the current working directory
-                basePath = Paths.get("data").toAbsolutePath().toString();
-                System.err.println("Falling back to default path in current working directory: " + basePath);
+                logger.warn("Using default path in current working directory: {}", basePath);
             }
         }
 
-        // --- Configuration ---
-        PropertiesLoader propsLoader = new PropertiesLoader();
-        String twitterBearerToken = System.getenv("TWITTER_BEARER_TOKEN");
-        String twitterUsername = System.getenv("TWITTER_USERNAME"); // Or get from props/args
-        String discordBotToken = System.getenv("DISCORD_BOT_TOKEN");
-        String discordChannelId = propsLoader.getProperty("discord.channel.id");
-
-        // Basic validation
-        if (twitterBearerToken == null || twitterUsername == null || discordBotToken == null || discordChannelId == null) {
-            System.err.println("Error: Missing required configuration.");
-            System.err.println("Ensure TWITTER_BEARER_TOKEN, TWITTER_USERNAME, DISCORD_BOT_TOKEN env vars are set,");
-            System.err.println("and discord.channel.id is present in config.properties.");
-            return;
-        }
-
+        DirectoryManager dirManager = null;
         DiscordNotifier discordNotifier = null;
+
         try {
-            // --- Initialization ---
-            System.out.println("Initializing with base path: " + basePath);
-            DirectoryManager dirManager = new DirectoryManager(basePath); // Use determined basePath
+            // --- Setup Directories and Logging Path ---
+            dirManager = new DirectoryManager(basePath); // Create dirs first
+            // Set system property for Logback BEFORE initializing log-dependent services
+            System.setProperty("LOG_DIR", dirManager.getLogsDir().toAbsolutePath().toString());
+            logger.info("Log directory set to: {}", dirManager.getLogsDir().toAbsolutePath());
+
+
+            // --- Configuration Loading ---
+            logger.info("Loading configuration...");
+            PropertiesLoader propsLoader = new PropertiesLoader();
+            String twitterBearerToken = System.getenv("TWITTER_BEARER_TOKEN");
+            String twitterUsername = System.getenv("TWITTER_USERNAME");
+            String discordBotToken = System.getenv("DISCORD_BOT_TOKEN");
+            String discordChannelId = propsLoader.getProperty("discord.channel.id");
+
+            // Validation
+            if (isNullOrEmpty(twitterBearerToken) || isNullOrEmpty(twitterUsername) || isNullOrEmpty(discordBotToken) || isNullOrEmpty(discordChannelId)) {
+                logger.error("Missing required configuration. Ensure TWITTER_BEARER_TOKEN, TWITTER_USERNAME, DISCORD_BOT_TOKEN env vars are set, and discord.channel.id is in config.properties.");
+                System.exit(1); // Exit if config is missing
+            }
+            logger.info("Configuration loaded successfully.");
+
+
+            // --- Service Initialization ---
+            logger.info("Initializing services...");
             TwitterService twitterService = new TwitterService(twitterBearerToken, twitterUsername);
             TweetWriter tweetWriter = new TweetWriter(dirManager.getInputDir());
-            discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId); // Initialize Discord bot
+            discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId); // Initialize Discord bot AFTER setting LOG_DIR
 
-            // --- Fetch Tweets ---
-            System.out.println("Fetching tweets for user: " + twitterUsername);
+
+            // --- Core Logic ---
+            logger.info("Fetching tweets for user: {}", twitterUsername);
             List<TweetData> tweets = twitterService.fetchTimelineTweets(10); // Fetch latest 10 tweets
 
             if (tweets.isEmpty()) {
-                System.out.println("No tweets fetched or an error occurred.");
+                logger.info("No new tweets fetched or an error occurred during fetch.");
             } else {
-                System.out.println("Fetched " + tweets.size() + " tweets.");
-                // --- Write Tweets to Files ---
-                System.out.println("Writing tweets to input directory: " + dirManager.getInputDir());
+                logger.info("Fetched {} tweets.", tweets.size());
+                logger.info("Writing tweets to input directory: {}", dirManager.getInputDir());
                 for (TweetData tweet : tweets) {
                     tweetWriter.writeTweetToFile(tweet);
                 }
 
-                // --- Process Files and Notify Discord ---
-                System.out.println("Processing tweet files and notifying Discord...");
+                logger.info("Processing tweet files and notifying Discord...");
                 TweetProcessor tweetProcessor = new TweetProcessor(dirManager, discordNotifier);
                 tweetProcessor.processInputFiles();
             }
 
-            System.out.println("Processing complete.");
+            logger.info("Main processing complete.");
 
         } catch (Exception e) {
-            System.err.println("An error occurred during execution: " + e.getMessage());
-            e.printStackTrace(); // Consider more robust logging
+            logger.error("An unhandled error occurred during execution: {}", e.getMessage(), e);
+            System.exit(1); // Exit on critical failure
         } finally {
             // --- Shutdown ---
+            logger.info("Initiating shutdown sequence...");
             if (discordNotifier != null) {
                 discordNotifier.shutdown(); // Gracefully shut down JDA connection
             }
-            System.out.println("Application finished.");
+            logger.info("Application finished.");
         }
+    }
+
+    // Helper method for configuration validation
+    private static boolean isNullOrEmpty(String str) {
+        return str == null || str.trim().isEmpty();
     }
 }
