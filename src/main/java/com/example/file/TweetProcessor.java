@@ -18,12 +18,14 @@ public class TweetProcessor {
     private final File processedDir;
     private final File failedDir;
     private final DiscordNotifier discordNotifier;
+    private final File binDir;
 
     public TweetProcessor(DirectoryManager directoryManager, DiscordNotifier discordNotifier) {
         this.inputDir = directoryManager.getInputDir().toFile();
         // Get the correct paths from DirectoryManager
         this.processedDir = directoryManager.getProcessedDir().toFile();
         this.failedDir = directoryManager.getFailedDir().toFile();
+        this.binDir = directoryManager.getBinDir().toFile();
         this.discordNotifier = discordNotifier;
         logger.info("TweetProcessor initialized. Input: {}, Processed: {}, Failed: {}",
                 inputDir.getAbsolutePath(), processedDir.getAbsolutePath(), failedDir.getAbsolutePath());
@@ -60,22 +62,20 @@ public class TweetProcessor {
 
             if (Files.exists(processedFilePath)) {
                 logger.info("Skipping already processed file: {}", inputFileName);
-                // Optionally delete the duplicate from input:
-                // try { FileUtils.delete(inputFile); logger.debug("Deleted duplicate input file: {}", inputFileName); } catch (IOException e) { logger.error("Failed to delete duplicate input file {}", inputFileName, e); }
+                moveOrDeleteFile(inputFile, inputFileName);
                 continue; // Skip to the next file
             }
 
             if (Files.exists(failedFilePath)) {
                 logger.info("Skipping file that previously failed: {}", inputFileName);
-                // Optionally delete the duplicate from input:
-                // try { FileUtils.delete(inputFile); logger.debug("Deleted duplicate input file: {}", inputFileName); } catch (IOException e) { logger.error("Failed to delete duplicate input file {}", inputFileName, e); }
+                moveOrDeleteFile(inputFile, inputFileName);
                 continue; // Skip to the next file
             }
             // --- End Check ---
 
 
             logger.info("Processing file: {}", inputFileName);
-            boolean success = false;
+            boolean success;
             try {
                 success = discordNotifier.consume(inputFile); // Attempt to consume
             } catch (Exception e) {
@@ -101,5 +101,23 @@ public class TweetProcessor {
             }
         }
         logger.info("Finished processing batch of files.");
+    }
+
+    private void moveOrDeleteFile(File inputFile, String inputFileName) {
+        File moveFileDest = new File(binDir, inputFileName);
+        try {
+            FileUtils.moveFile(inputFile, moveFileDest);
+            logger.debug("Deleted duplicate input file: {}", inputFileName);
+        } catch (IOException e) {
+            String inputFilePath = inputFile.getPath();
+            try {
+                logger.error("Failed to move duplicate input file {} to {}", inputFilePath, moveFileDest.getPath(), e);
+                FileUtils.delete(inputFile);
+                logger.debug("Deleted duplicate input file: {}", inputFilePath);
+            } catch (IOException ioe) {
+                logger.error("Failed to delete duplicate input file {}", inputFilePath, ioe);
+            }
+
+        }
     }
 }
