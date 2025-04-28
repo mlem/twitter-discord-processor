@@ -1,0 +1,13 @@
+# Contributing
+
+Contributions are welcome! Please follow these steps:
+
+* Fork the repository on GitHub.
+* Create a new branch for your feature or bug fix (git checkout -b feature/your-feature-name or bugfix/issue-description).
+* Make your changes, ensuring code follows existing style patterns.
+* Add tests for your changes if applicable.
+* Ensure the project builds successfully (mvn clean package).
+* Commit your changes (git commit -m "Add some feature").
+* Push the branch to your fork (git push origin feature/your-feature-name).
+* Create a Pull Request from your fork's branch to the main repository's main branch.
+* Describe your changes clearly in the Pull Request.

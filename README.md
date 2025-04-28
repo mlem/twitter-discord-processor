@@ -24,6 +24,8 @@ This Java application fetches tweets (including images) from a specified user's 
 * **Twitter API Credentials:** You need a **Bearer Token** from a Twitter Developer App (v2 API access required).
 * **Discord Bot Token:** You need a token for a Discord Bot that has permissions to send messages in the target channel.
 * **Discord Channel ID:** The ID of the text channel where the bot should post messages.
+  
+For more detailed instructions, please refer to the [How-To Guide](HOW-TO.md).
 
 ## Configuration
 
@@ -36,14 +38,17 @@ This Java application fetches tweets (including images) from a specified user's 
     ```properties
     # Discord Configuration
     discord.channel.id=YOUR_DISCORD_CHANNEL_ID_HERE
+
+    # Twitter Configuration (Fallback if ENV var not set)
+    twitter.username=YOUR_DEFAULT_TWITTER_USERNAME_HERE
     ```
 
 ## Building
 
 1.  Clone the repository:
     ```bash
-    git clone <your-repository-url>
-    cd twitter-timeline
+    git clone https://github.com/mlem/twitter-discord-processor.git
+    cd twitter-discord-processor
     ```
 2.  Compile and package the application using Maven:
     ```bash
@@ -78,36 +83,7 @@ The application will then:
 * Move the file to processed on success or failed on failure.
 
 ## Contributing
-Contributions are welcome! Please follow these steps:
-
-* Fork the repository on GitHub.
-* Create a new branch for your feature or bug fix (git checkout -b feature/your-feature-name or bugfix/issue-description).
-* Make your changes, ensuring code follows existing style patterns.
-* Add tests for your changes if applicable.
-* Ensure the project builds successfully (mvn clean package).
-* Commit your changes (git commit -m "Add some feature").
-* Push the branch to your fork (git push origin feature/your-feature-name).
-* Create a Pull Request from your fork's branch to the main repository's main branch.
-* Describe your changes clearly in the Pull Request.
+Contributions are welcome! Please follow the steps in [CONTRIBUTING](CONTRIBUTING).
 
 ## License
-This project is licensed under the MIT License. See the details below.
-
-MIT License
-
-Copyright (c) 2025 Martin Lemanski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+This project is licensed under the MIT License. See the details in [LICENSE](LICENSE).
