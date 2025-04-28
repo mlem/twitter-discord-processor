@@ -14,7 +14,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jda.version>5.4.0</jda.version>
     <commons.io.version>2.19.0</commons.io.version>
-    <slf4j.version>2.0.13</slf4j.version> <logback.version>1.5.6</logback.version> </properties>
+    <slf4j.version>2.0.13</slf4j.version>
+    <logback.version>1.5.6</logback.version>
+    <twitch4j.version>1.20.0</twitch4j.version> </properties>
 
   <dependencies>
     <dependency>
@@ -51,6 +53,23 @@
       <artifactId>commons-io</artifactId>
       <version>${commons.io.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>com.github.twitch4j</groupId>
+      <artifactId>twitch4j-helix</artifactId>
+      <version>${twitch4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.twitch4j</groupId>
+      <artifactId>twitch4j-common</artifactId>
+      <version>${twitch4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.twitch4j</groupId>
+      <artifactId>twitch4j-http-client-apache</artifactId>
+      <version>${twitch4j.version}</version>
+    </dependency>
+
   </dependencies>
 
   <build>
