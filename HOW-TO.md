@@ -165,3 +165,49 @@ Once your Developer Account is approved:
 
 * The default access level for new developer accounts and apps is usually "Essential" access (v2 API). This level is sufficient for fetching timelines and many other read-only tasks.
 * If you need higher rate limits or access to more advanced endpoints, you might need to apply for "Elevated" access through the Developer Portal dashboard.
+
+
+## How to Get Twitch API Credentials (Client ID & Secret)
+
+To allow your application to interact with the Twitch API (specifically, to fetch user information like profile pictures), you need to register an application on the Twitch Developer Console and obtain its Client ID and Client Secret.
+
+**Prerequisites:**
+
+* A Twitch account. If you don't have one, sign up at [https://www.twitch.tv/](https://www.twitch.tv/).
+
+**Steps:**
+
+1.  **Go to the Twitch Developer Console:**
+    * Open your web browser and navigate to: [https://dev.twitch.tv/console](https://dev.twitch.tv/console)
+    * Log in using your Twitch account credentials. You might need to enable Two-Factor Authentication (2FA) on your Twitch account if you haven't already.
+
+2.  **Navigate to Applications:**
+    * In the left-hand sidebar menu, click on "**Applications**".
+
+3.  **Register Your Application:**
+    * Click the "**+ Register Your Application**" button.
+    * Fill out the application registration form:
+        * **Name:** Give your application a unique name (e.g., "My Twitter Discord Relay", "Timeline Bot Info Fetcher").
+        * **OAuth Redirect URLs:** For the current server-to-server interaction (fetching user info doesn't require user login through your app), you can often enter `http://localhost`. If Twitch requires a valid HTTPS URL, you might need to provide one, even if it's not actively used for this specific flow.
+        * **Category:** Select an appropriate category for your application (e.g., "Bot", "Website Integration").
+        * *(Optional)* **Creator:** Enter your name or organization.
+    * Click the "**Create**" button.
+
+4.  **Manage Your Application & Get Credentials:**
+    * After creation, you'll be taken to your application's management page. If not, find your application in the list under "Applications" and click on its name.
+    * On this page, you will find your **Client ID**. Copy this value.
+    * Below the Client ID, there should be a section for the **Client Secret**. Click the "**New Secret**" button.
+    * **Important:** Twitch will display the Client Secret **only once** immediately after generation. Copy this value right away.
+    * Confirm any prompts about understanding that the secret won't be shown again.
+
+5.  **Save Your Credentials Securely:**
+    * Paste both the **Client ID** and the **Client Secret** into a secure, private location (like a password manager).
+    * **Treat the Client Secret like a password!** Do not share it publicly, commit it to version control (like Git), or embed it directly in your code.
+
+6.  **Use the Credentials:**
+    * Set the **Client ID** you copied as the value for the `TWITCH_CLIENT_ID` environment variable for your Java application.
+    * Set the **Client Secret** you copied as the value for the `TWITCH_CLIENT_SECRET` environment variable for your Java application.
+
+Your application now has the necessary credentials to authenticate with the Twitch API using the Client Credentials flow (suitable for server-to-server requests like fetching public user information).
+
+
