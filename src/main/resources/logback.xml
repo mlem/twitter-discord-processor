@@ -1,6 +1,9 @@
 <configuration>
 
-    <property name="LOG_DIR" value="${LOG_DIR:-./logs}" />
+    <define name="ROOT_LOG_DIR" class="com.example.log.LogsDirLogBackPropertyDefiner">
+    </define>
+
+    <property name="LOG_DIR" value="${ROOT_LOG_DIR:-./logs}" />
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

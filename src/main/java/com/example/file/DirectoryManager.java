@@ -1,9 +1,12 @@
 package com.example.file;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -42,6 +45,18 @@ public class DirectoryManager {
         logger.debug("Ensured directory exists: {}", processedDir.toAbsolutePath());
         Files.createDirectories(failedDir);
         logger.debug("Ensured directory exists: {}", failedDir.toAbsolutePath());
+    }
+
+    public static @NotNull String basePathRelativeToJar() {
+        try {
+            File jarFile = new File(DirectoryManager.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            Path jarDir = jarFile.getParentFile().toPath();
+            Path defaultDataDir = jarDir.resolve("data");
+            return defaultDataDir.toAbsolutePath().toString();
+        } catch (URISyntaxException e) {
+            logger.error("Couldn't create an Url from the file location of that jar", e);
+            return new File("data").toURI().toString();
+        }
     }
 
     // Getters remain the same, returning the correct Path objects

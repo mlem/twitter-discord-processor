@@ -35,6 +35,7 @@ public class TwitterService {
                 .bearerToken(bearerToken)
                 .build();
         this.twitterClient = new TwitterClient(credentials);
+        twitterClient.setAutomaticRetry(false);
         // Fetch user initially - consider error handling if this fails
         this.twitterUser = fetchTwitterUserObject();
     }

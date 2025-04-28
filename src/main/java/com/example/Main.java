@@ -6,6 +6,7 @@ import com.example.file.DirectoryManager;
 import com.example.file.SingleTweetFileProcessor;
 import com.example.file.TweetProcessor;
 import com.example.file.TweetWriter;
+import com.example.log.LogsDirLogBackPropertyDefiner;
 import com.example.twitch.TwitchService; // Import TwitchService
 import com.example.twitch.TwitchUserInfo; // Import TwitchUserInfo
 import com.example.twitter.TweetData;
@@ -13,9 +14,7 @@ import com.example.twitter.TwitterService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.net.URISyntaxException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional; // Import Optional
@@ -36,12 +35,9 @@ public class Main {
             logger.info("Using provided base path: {}", basePath);
         } else {
             try {
-                File jarFile = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                Path jarDir = jarFile.getParentFile().toPath();
-                Path defaultDataDir = jarDir.resolve("data");
-                basePath = defaultDataDir.toAbsolutePath().toString();
+                basePath = DirectoryManager.basePathRelativeToJar();
                 logger.info("No base path provided. Using default relative to JAR: {}", basePath);
-            } catch (URISyntaxException | SecurityException | NullPointerException e) {
+            } catch (SecurityException | NullPointerException e) {
                 logger.warn("Error determining JAR file location for default path: {}. Falling back to current working directory.", e.getMessage());
                 basePath = Paths.get("data").toAbsolutePath().toString();
                 logger.warn("Using default path in current working directory: {}", basePath);
@@ -77,6 +73,7 @@ public class Main {
         try {
             // --- Setup Directories and Logging Path ---
             dirManager = new DirectoryManager(basePath);
+            LogsDirLogBackPropertyDefiner.setDirectoryManager(dirManager);
             System.setProperty("LOG_DIR", dirManager.getLogsDir().toAbsolutePath().toString());
             logger.info("Log directory set to: {}", dirManager.getLogsDir().toAbsolutePath());
 

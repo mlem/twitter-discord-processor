@@ -13,9 +13,11 @@ import java.util.stream.Collectors;
 
 public class TweetWriter {
 
-    private static final Logger logger = LoggerFactory.getLogger(TweetWriter.class);
-    private final Path inputDirPath;
     public static final String IMAGE_URL_SEPARATOR = ",";
+
+    private static final Logger logger = LoggerFactory.getLogger(TweetWriter.class);
+
+    private final Path inputDirPath;
 
     public TweetWriter(Path inputDirPath) {
         this.inputDirPath = inputDirPath;
@@ -33,7 +35,7 @@ public class TweetWriter {
 
         // Define lines including new author info
         // Use empty string if any author field is null to avoid "null" in the file
-        String line1 = "Text: " + tweetData.getText();
+        String line1 = "Text: " + tweetData.getText().replaceAll("\n", "###n###");
         String line2 = "URL: " + tweetData.getUrl();
         String line3 = "ImageURLs: " + imageUrlsString;
         String line4 = "AuthorName: " + (tweetData.getAuthorName() != null ? tweetData.getAuthorName() : "");
