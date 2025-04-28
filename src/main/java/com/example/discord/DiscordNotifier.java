@@ -11,7 +11,6 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger; // Import Logger
 import org.slf4j.LoggerFactory; // Import LoggerFactory
 
-import javax.security.auth.login.LoginException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -27,7 +26,7 @@ public class DiscordNotifier {
     private final String channelId;
     private static final int MAX_DISCORD_MESSAGE_LENGTH = 2000;
 
-    public DiscordNotifier(String botToken, String channelId) throws LoginException, InterruptedException {
+    public DiscordNotifier(String botToken, String channelId) throws InterruptedException {
         if (botToken == null || channelId == null) {
             logger.error("Discord Bot Token and Channel ID must be provided.");
             throw new IllegalArgumentException("Discord Bot Token and Channel ID must be provided.");
@@ -38,9 +37,6 @@ public class DiscordNotifier {
             this.jda = JDABuilder.createDefault(botToken).build();
             this.jda.awaitReady(); // Wait for JDA to be ready
             logger.info("Discord Bot Connected and Ready!");
-        } catch (LoginException e) {
-            logger.error("Discord login failed: {}", e.getMessage());
-            throw e;
         } catch (InterruptedException e) {
             logger.error("Discord connection interrupted while waiting for ready state.", e);
             Thread.currentThread().interrupt(); // Re-interrupt the thread
