@@ -3,12 +3,13 @@ package com.example;
 import com.example.config.PropertiesLoader;
 import com.example.discord.DiscordNotifier;
 import com.example.file.DirectoryManager;
+import com.example.file.SingleTweetFileProcessor; // Import the new class
 import com.example.file.TweetProcessor;
 import com.example.file.TweetWriter;
 import com.example.twitter.TweetData;
 import com.example.twitter.TwitterService;
-import org.slf4j.Logger; // Import Logger
-import org.slf4j.LoggerFactory; // Import LoggerFactory
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.URISyntaxException;
@@ -16,36 +17,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-/**
- * Build this with the command in root directory
- * ```
- * mvn clean package
- * ```
- *
- * Run this with
- * ```
- * java -jar target/twitter-discord-processor-1.0-SNAPSHOT-jar-with-dependencies.jar /path/to/your/data/directory
- * ```
- */
 public class Main {
 
-    // Initialize Logger for this class
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
-    /**
-     * Need to set environment variables in order to use this
-     *
-     * TWITTER_BEARER_TOKEN: Your Twitter API Bearer Token.
-     * TWITTER_USERNAME: The Twitter username whose timeline you want to fetch.
-     * DISCORD_BOT_TOKEN: Your Discord Bot Token.
-     *
-     * @param args
-     */
     public static void main(String[] args) {
         logger.info("Application starting...");
         String basePath;
 
-        // Determine base path
+        // Determine base path (same as before)
         if (args.length >= 1 && args[0] != null && !args[0].trim().isEmpty()) {
             basePath = args[0];
             logger.info("Using provided base path: {}", basePath);
@@ -68,11 +48,9 @@ public class Main {
 
         try {
             // --- Setup Directories and Logging Path ---
-            dirManager = new DirectoryManager(basePath); // Create dirs first
-            // Set system property for Logback BEFORE initializing log-dependent services
+            dirManager = new DirectoryManager(basePath);
             System.setProperty("LOG_DIR", dirManager.getLogsDir().toAbsolutePath().toString());
             logger.info("Log directory set to: {}", dirManager.getLogsDir().toAbsolutePath());
-
 
             // --- Configuration Loading ---
             logger.info("Loading configuration...");
@@ -82,24 +60,27 @@ public class Main {
             String discordBotToken = System.getenv("DISCORD_BOT_TOKEN");
             String discordChannelId = propsLoader.getProperty("discord.channel.id");
 
-            // Validation
             if (isNullOrEmpty(twitterBearerToken) || isNullOrEmpty(twitterUsername) || isNullOrEmpty(discordBotToken) || isNullOrEmpty(discordChannelId)) {
                 logger.error("Missing required configuration. Ensure TWITTER_BEARER_TOKEN, TWITTER_USERNAME, DISCORD_BOT_TOKEN env vars are set, and discord.channel.id is in config.properties.");
-                System.exit(1); // Exit if config is missing
+                System.exit(1);
             }
             logger.info("Configuration loaded successfully.");
-
 
             // --- Service Initialization ---
             logger.info("Initializing services...");
             TwitterService twitterService = new TwitterService(twitterBearerToken, twitterUsername);
             TweetWriter tweetWriter = new TweetWriter(dirManager.getInputDir());
-            discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId); // Initialize Discord bot AFTER setting LOG_DIR
+            discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId);
 
+            // Instantiate the new single file processor
+            SingleTweetFileProcessor singleFileProcessor = new SingleTweetFileProcessor(dirManager, discordNotifier);
+
+            // Instantiate the main processor, injecting the single file processor
+            TweetProcessor tweetProcessor = new TweetProcessor(dirManager, singleFileProcessor);
 
             // --- Core Logic ---
             logger.info("Fetching tweets for user: {}", twitterUsername);
-            List<TweetData> tweets = twitterService.fetchTimelineTweets(10); // Fetch latest 10 tweets
+            List<TweetData> tweets = twitterService.fetchTimelineTweets(10);
 
             if (tweets.isEmpty()) {
                 logger.info("No new tweets fetched or an error occurred during fetch.");
@@ -110,8 +91,8 @@ public class Main {
                     tweetWriter.writeTweetToFile(tweet);
                 }
 
+                // Call the refactored processor
                 logger.info("Processing tweet files and notifying Discord...");
-                TweetProcessor tweetProcessor = new TweetProcessor(dirManager, discordNotifier);
                 tweetProcessor.processInputFiles();
             }
 
@@ -119,18 +100,16 @@ public class Main {
 
         } catch (Exception e) {
             logger.error("An unhandled error occurred during execution: {}", e.getMessage(), e);
-            System.exit(1); // Exit on critical failure
+            System.exit(1);
         } finally {
-            // --- Shutdown ---
             logger.info("Initiating shutdown sequence...");
             if (discordNotifier != null) {
-                discordNotifier.shutdown(); // Gracefully shut down JDA connection
+                discordNotifier.shutdown();
             }
             logger.info("Application finished.");
         }
     }
 
-    // Helper method for configuration validation
     private static boolean isNullOrEmpty(String str) {
         return str == null || str.trim().isEmpty();
     }
