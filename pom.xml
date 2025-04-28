@@ -4,11 +4,17 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.example</groupId>
-  <artifactId>twitter-discord-processor</artifactId> <version>1.0-SNAPSHOT</version>
-  <packaging>jar</packaging> <properties>
-  <maven.compiler.source>1.8</maven.compiler.source>
-  <maven.compiler.target>1.8</maven.compiler.target>
-  <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding> <jda.version>5.4.0</jda.version> <commons.io.version>2.19.0</commons.io.version> </properties>
+  <artifactId>twitter-discord-processor</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <jda.version>5.4.0</jda.version>
+    <commons.io.version>2.19.0</commons.io.version>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -19,13 +25,11 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>1.7.30</version>
-    </dependency>
+      <version>1.7.30</version> </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-simple</artifactId>
-      <version>1.7.30</version>
-    </dependency>
+      <version>1.7.30</version> </dependency>
     <dependency>
       <groupId>net.dv8tion</groupId>
       <artifactId>JDA</artifactId>
@@ -43,30 +47,33 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
-        <configuration>
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
-        </configuration>
+        <version>3.13.0</version> <configuration>
+        <source>21</source>
+        <target>21</target>
+        <compilerArgs>--enable-preview</compilerArgs>
+      </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.7.1</version> <configuration>
-        <archive>
-          <manifest>
-            <mainClass>com.example.Main</mainClass>
-          </manifest>
-        </archive>
-        <descriptorRefs>
-          <descriptorRef>jar-with-dependencies</descriptorRef>
-        </descriptorRefs>
-      </configuration>
+        <version>3.7.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.example.Main</mainClass>
+            </manifest>
+          </archive>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
         <executions>
           <execution>
-            <id>make-assembly</id> <phase>package</phase> <goals>
-            <goal>single</goal>
-          </goals>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>

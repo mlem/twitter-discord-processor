@@ -8,6 +8,10 @@ import com.example.file.TweetWriter;
 import com.example.twitter.TweetData;
 import com.example.twitter.TwitterService;
 
+import java.io.File;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -33,11 +37,35 @@ public class Main {
      * @param args
      */
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Usage: java -jar <your-jar-name>.jar <base-directory-path>");
-            return;
+        String basePath;
+
+        // Determine base path: use argument or default to ./data relative to JAR
+        if (args.length >= 1 && args[0] != null && !args[0].trim().isEmpty()) {
+            basePath = args[0];
+            System.out.println("Using provided base path: " + basePath);
+        } else {
+            try {
+                // Find the directory containing the JAR file
+                File jarFile = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                Path jarDir = jarFile.getParentFile().toPath(); // Directory containing the jar
+                Path defaultDataDir = jarDir.resolve("data"); // Default path: <jar_dir>/data
+                basePath = defaultDataDir.toAbsolutePath().toString();
+                System.out.println("No base path provided. Using default relative to JAR: " + basePath);
+            } catch (URISyntaxException | SecurityException e) {
+                System.err.println("Error determining JAR file location for default path: " + e.getMessage());
+                // Fallback to using 'data' directory in the current working directory
+                basePath = Paths.get("data").toAbsolutePath().toString();
+                System.err.println("Falling back to default path in current working directory: " + basePath);
+                // Optional: Exit if default path determination fails critically
+                // System.err.println("Cannot determine default path. Please provide a path as an argument.");
+                // return;
+            } catch (NullPointerException e) {
+                System.err.println("Could not determine code source location (maybe running from IDE?).");
+                // Fallback to using 'data' directory in the current working directory
+                basePath = Paths.get("data").toAbsolutePath().toString();
+                System.err.println("Falling back to default path in current working directory: " + basePath);
+            }
         }
-        String basePath = args[0];
 
         // --- Configuration ---
         PropertiesLoader propsLoader = new PropertiesLoader();
@@ -54,12 +82,11 @@ public class Main {
             return;
         }
 
-
         DiscordNotifier discordNotifier = null;
         try {
             // --- Initialization ---
-            System.out.println("Initializing...");
-            DirectoryManager dirManager = new DirectoryManager(basePath);
+            System.out.println("Initializing with base path: " + basePath);
+            DirectoryManager dirManager = new DirectoryManager(basePath); // Use determined basePath
             TwitterService twitterService = new TwitterService(twitterBearerToken, twitterUsername);
             TweetWriter tweetWriter = new TweetWriter(dirManager.getInputDir());
             discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId); // Initialize Discord bot
