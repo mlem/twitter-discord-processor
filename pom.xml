@@ -5,10 +5,11 @@
 
   <groupId>com.example</groupId>
   <artifactId>twitter-discord-processor</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>${revision}</version>
   <packaging>jar</packaging>
 
   <properties>
+    <revision>1.0-SNAPSHOT</revision>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -17,7 +18,8 @@
     <slf4j.version>2.0.13</slf4j.version>
     <logback.version>1.5.6</logback.version>
     <twitch4j.version>1.20.0</twitch4j.version>
-    <jackson.version>2.17.1</jackson.version> </properties>
+    <jackson.version>2.17.1</jackson.version>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -96,40 +98,41 @@
   </dependencies>
 
   <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
-        <configuration>
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.7.1</version>
-        <configuration>
-          <archive>
-            <manifest>
-              <mainClass>com.example.Main</mainClass>
-            </manifest>
-          </archive>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-        </configuration>
-        <executions>
-          <execution>
-            <id>make-assembly</id>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
+    <finalName>${project.artifactId}-${project.version}</finalName> <plugins>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-compiler-plugin</artifactId>
+      <version>3.13.0</version>
+      <configuration>
+        <source>${maven.compiler.source}</source>
+        <target>${maven.compiler.target}</target>
+      </configuration>
+    </plugin>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-assembly-plugin</artifactId>
+      <version>3.7.1</version>
+      <configuration>
+        <archive>
+          <manifest>
+            <mainClass>com.example.Main</mainClass>
+          </manifest>
+        </archive>
+        <descriptorRefs>
+          <descriptorRef>jar-with-dependencies</descriptorRef>
+        </descriptorRefs>
+        <finalName>${project.artifactId}-${project.version}</finalName>
+        <appendAssemblyId>false</appendAssemblyId> </configuration>
+      <executions>
+        <execution>
+          <id>make-assembly</id>
+          <phase>package</phase>
+          <goals>
+            <goal>single</goal>
+          </goals>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
   </build>
 </project>

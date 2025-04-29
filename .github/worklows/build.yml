@@ -1,0 +1,58 @@
+# Workflow name
+name: Java CI Build and Package
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push events but only for the main branch
+  push:
+    branches: [ "main" ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Sets up JDK 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin' # Or 'zulu', 'adopt', etc.
+
+      # Cache Maven packages to speed up build
+      - name: Set up Maven Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository # Path to cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }} # Cache key based on OS and pom.xml hash
+          restore-keys: |
+            ${{ runner.os }}-maven- # Fallback key
+
+      # Build the project using Maven, setting the version dynamically
+      - name: Build with Maven
+        # Use github.run_number for an ascending build number as the patch version
+        # Override the 'revision' property defined in pom.xml
+        run: mvn clean package -Drevision=1.0.${{ github.run_number }}
+
+      # Upload the built JAR artifact
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # Artifact name that will appear in GitHub Actions artifacts listing
+          name: twitter-discord-processor-jar
+          # Path to the file(s) to upload. Uses the version set during build.
+          # Matches the finalName defined in pom.xml
+          path: target/twitter-discord-processor-1.0.${{ github.run_number }}.jar
+          # Optional: How long to retain the artifact (default is 90 days)
+          retention-days: 30
+
