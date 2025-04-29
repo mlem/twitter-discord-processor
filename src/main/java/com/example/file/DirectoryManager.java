@@ -14,13 +14,15 @@ import java.nio.file.Paths;
 public class DirectoryManager {
 
     private static final Logger logger = LoggerFactory.getLogger(DirectoryManager.class);
+    public static final String LAST_TWEET_ID_FILENAME = "LAST_TWEET_ID.txt"; // Define filename
 
     private final Path baseDir;
     private final Path inputDir;
     private final Path logsDir;
-    private final Path binDir; // Keep bin alongside others
-    private final Path processedDir; // Alongside others
-    private final Path failedDir;    // Alongside others
+    private final Path binDir;
+    private final Path processedDir;
+    private final Path failedDir;
+    private final Path lastTweetIdFile; // Path to the ID file
 
 
     public DirectoryManager(String basePath) throws IOException {
@@ -28,9 +30,11 @@ public class DirectoryManager {
         // Define all directories directly under baseDir
         this.inputDir = baseDir.resolve("input");
         this.logsDir = baseDir.resolve("logs");
-        this.binDir = baseDir.resolve("bin"); // Still creating bin, but alongside
-        this.processedDir = baseDir.resolve("processed"); // Now alongside
-        this.failedDir = baseDir.resolve("failed");       // Now alongside
+        this.binDir = baseDir.resolve("bin");
+        this.processedDir = baseDir.resolve("processed");
+        this.failedDir = baseDir.resolve("failed");
+        // Define the path for the last tweet ID file directly under baseDir
+        this.lastTweetIdFile = baseDir.resolve(LAST_TWEET_ID_FILENAME);
 
         logger.info("Ensuring directory structure exists under base path: {}", baseDir.toAbsolutePath());
 
@@ -45,9 +49,14 @@ public class DirectoryManager {
         logger.debug("Ensured directory exists: {}", processedDir.toAbsolutePath());
         Files.createDirectories(failedDir);
         logger.debug("Ensured directory exists: {}", failedDir.toAbsolutePath());
+
+        // Don't create the ID file itself here, just ensure the base directory exists
+        logger.debug("Path for last tweet ID file: {}", lastTweetIdFile.toAbsolutePath());
     }
 
-    public static @NotNull String basePathRelativeToJar() {
+    @NotNull
+    public static String basePathRelativeToJar() {
+        // (Implementation remains the same as user provided)
         try {
             File jarFile = new File(DirectoryManager.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             Path jarDir = jarFile.getParentFile().toPath();
@@ -55,32 +64,27 @@ public class DirectoryManager {
             return defaultDataDir.toAbsolutePath().toString();
         } catch (URISyntaxException e) {
             logger.error("Couldn't create an Url from the file location of that jar", e);
-            return new File("data").toURI().toString();
+            // Return path string, not URI string
+            return Paths.get("data").toAbsolutePath().toString();
+        } catch (SecurityException | NullPointerException e) {
+            logger.error("Security or NullPointer exception getting code source location", e);
+            return Paths.get("data").toAbsolutePath().toString();
         }
     }
 
-    // Getters remain the same, returning the correct Path objects
-    public Path getBaseDir() {
-        return baseDir;
-    }
+    // --- Getters ---
+    public Path getBaseDir() { return baseDir; }
+    public Path getInputDir() { return inputDir; }
+    public Path getProcessedDir() { return processedDir; }
+    public Path getFailedDir() { return failedDir; }
+    public Path getLogsDir() { return logsDir; }
+    public Path getBinDir() { return binDir; }
 
-    public Path getInputDir() {
-        return inputDir;
-    }
-
-    public Path getProcessedDir() {
-        return processedDir;
-    }
-
-    public Path getFailedDir() {
-        return failedDir;
-    }
-
-    public Path getLogsDir() {
-        return logsDir;
-    }
-
-    public Path getBinDir() {
-        return binDir;
+    /**
+     * Gets the Path object for the file storing the last processed tweet ID.
+     * @return Path to the LAST_TWEET_ID file.
+     */
+    public Path getLastTweetIdFile() { // Getter for the ID file path
+        return lastTweetIdFile;
     }
 }
