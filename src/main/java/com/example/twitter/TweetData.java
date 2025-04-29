@@ -40,6 +40,29 @@ public class TweetData {
     private final String tweetGeoStr;
 
 
+    public TweetData() {
+
+        id = "";
+        text = "";
+        url = "";
+        imageUrls = List.of();
+        createdAt = null;
+        authorName = "";
+        authorProfileUrl = "";
+        authorProfileImageUrl = "";
+        twitchUsername = "";
+        twitchProfileImageUrl = "";
+        twitchChannelUrl = "";
+        tweetAuthorId = "";
+        tweetConversationId = "";
+        tweetLang = "";
+        tweetSource = "";
+        tweetReplySettings = "";
+        tweetInReplyToUserId = "";
+        tweetEntitiesStr = "";
+        tweetAttachmentsStr = "";
+        tweetGeoStr = "";
+    }
     // Updated Constructor
     public TweetData(
             // Core Tweet

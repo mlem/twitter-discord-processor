@@ -14,7 +14,6 @@ import com.example.twitter.TwitterService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URISyntaxException; // Keep if using DirectoryManager.basePathRelativeToJar
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
@@ -69,6 +68,7 @@ public class Main {
         DirectoryManager dirManager = null;
         DiscordNotifier discordNotifier = null;
         TwitchService twitchService = null;
+        TweetProcessor tweetProcessor = null; // Declare TweetProcessor earlier
 
         try {
             // --- Setup Directories and Logging Path ---
@@ -86,7 +86,7 @@ public class Main {
             String discordChannelId = propsLoader.getProperty("discord.channel.id");
             String twitchClientId = System.getenv("TWITCH_CLIENT_ID");
             String twitchClientSecret = System.getenv("TWITCH_CLIENT_SECRET");
-            String twitchUsername = propsLoader.getProperty("twitch.username"); // Configured Twitch username
+            String twitchUsername = propsLoader.getProperty("twitch.username");
 
             String twitterUsername;
             String usernameSource;
@@ -104,73 +104,92 @@ public class Main {
                     isNullOrEmpty(discordBotToken) || isNullOrEmpty(discordChannelId) ||
                     isNullOrEmpty(twitchClientId) || isNullOrEmpty(twitchClientSecret) ||
                     isNullOrEmpty(twitchUsername)) {
-                logger.error("Missing required configuration.");
+                logger.error("Missing required configuration. Exiting.");
                 // ... (error messages remain the same) ...
                 System.exit(1);
             }
             logger.info("Configuration loaded successfully.");
 
             // --- Service Initialization ---
-            logger.info("Initializing services...");
-            TwitterService twitterService = new TwitterService(twitterBearerToken, twitterUsername);
+            // Initialize services needed for both fetching and processing
+            logger.info("Initializing core services...");
             TweetWriter tweetWriter = new TweetWriter(dirManager.getInputDir());
             discordNotifier = new DiscordNotifier(discordBotToken, discordChannelId);
-            twitchService = new TwitchService(twitchClientId, twitchClientSecret);
+            twitchService = new TwitchService(twitchClientId, twitchClientSecret); // Initialize TwitchService early
+            TwitterService twitterService = new TwitterService(twitterBearerToken, twitterUsername); // Initialize TwitterService early
 
             // --- Fetch Twitch Info Once ---
-            logger.info("Fetching Twitch user info for configured user: {}", twitchUsername);
-            Optional<TwitchUserInfo> twitchInfoOpt = twitchService.fetchUserInfo(twitchUsername);
-            if (!twitchInfoOpt.isPresent()) {
-                logger.warn("Could not fetch Twitch user info for {}. Embeds will not include Twitch thumbnail.", twitchUsername);
+            // This still needs to happen before processing, but can tolerate failure
+            Optional<TwitchUserInfo> twitchInfoOpt = Optional.empty(); // Default to empty
+            try {
+                logger.info("Fetching Twitch user info for configured user: {}", twitchUsername);
+                twitchInfoOpt = twitchService.fetchUserInfo(twitchUsername);
+                if (!twitchInfoOpt.isPresent()) {
+                    logger.warn("Could not fetch Twitch user info for {}. Embeds will not include Twitch thumbnail.", twitchUsername);
+                }
+            } catch (Exception e) {
+                logger.error("Error fetching Twitch user info for {}: {}", twitchUsername, e.getMessage(), e);
+                // Continue without Twitch info
             }
-            // Extract info or use null if not present
-            String twitchLogoUrl = twitchInfoOpt.map(TwitchUserInfo::profileImageUrl).orElse(null);
-            String twitchChanUrl = twitchInfoOpt.map(TwitchUserInfo::channelUrl).orElse(null);
             // --- End Fetch Twitch Info ---
 
-            // Instantiate processors (SingleTweetFileProcessor no longer needs Twitch info)
-            SingleTweetFileProcessor singleFileProcessor = new SingleTweetFileProcessor(dirManager, discordNotifier);
-            TweetProcessor tweetProcessor = new TweetProcessor(dirManager, singleFileProcessor);
 
-            // --- Core Logic ---
-            logger.info("Fetching up to {} tweets for user: {}", maxTweetsToFetch, twitterUsername);
-            // Pass Twitch info when creating TweetData objects within fetchTimelineTweets
-            // NOTE: This requires modifying TwitterService to accept twitch info or modifying Main to create TweetData here.
-            // Let's modify Main to create TweetData here for simplicity, assuming TwitterService returns raw API objects.
-            // *** This requires a significant change in TwitterService's return type or this loop's logic. ***
-            // *** Reverting to the previous approach where TwitterService creates TweetData, but now passing Twitch info ***
+            // --- Attempt to Fetch and Write Tweets ---
+            // This block can fail without stopping the subsequent processing step
+            try {
+                logger.info("Attempting to fetch up to {} tweets for user: {}", maxTweetsToFetch, twitterUsername);
 
-            // Fetch tweets (TwitterService needs modification to accept Twitch info for TweetData creation)
-            List<TweetData> tweets = twitterService.fetchTimelineTweets(
-                    maxTweetsToFetch,
-                    twitchUsername, // Pass configured Twitch username
-                    twitchLogoUrl,  // Pass fetched logo URL
-                    twitchChanUrl   // Pass fetched channel URL
-            );
+                // Extract Twitch details safely
+                String twitchLogoUrl = twitchInfoOpt.map(TwitchUserInfo::profileImageUrl).orElse(null);
+                String twitchChanUrl = twitchInfoOpt.map(TwitchUserInfo::channelUrl).orElse(null);
 
+                List<TweetData> tweets = twitterService.fetchTimelineTweets(
+                        maxTweetsToFetch,
+                        twitchUsername,
+                        twitchLogoUrl,
+                        twitchChanUrl
+                );
 
-            if (tweets.isEmpty()) {
-                logger.info("No new tweets fetched or an error occurred during fetch.");
-            } else {
-                logger.info("Fetched {} tweets.", tweets.size());
-                logger.info("Writing tweets to input directory: {}", dirManager.getInputDir());
-                for (TweetData tweet : tweets) {
-                    // TweetData object now contains all necessary context
-                    tweetWriter.writeTweetToFile(tweet);
+                if (tweets.isEmpty()) {
+                    logger.info("No new tweets fetched or an error occurred during fetch.");
+                } else {
+                    logger.info("Fetched {} tweets.", tweets.size());
+                    logger.info("Writing tweets to input directory: {}", dirManager.getInputDir());
+                    for (TweetData tweet : tweets) {
+                        tweetWriter.writeTweetToFile(tweet);
+                    }
                 }
-                logger.info("Processing tweet files and notifying Discord...");
-                tweetProcessor.processInputFiles();
+            } catch (Exception e) {
+                // Log the error but allow the program to continue to the processing step
+                logger.error("Error occurred during tweet fetching or writing: {}. Proceeding to process existing files.", e.getMessage(), e);
             }
-            logger.info("Main processing complete.");
+            // --- End Fetch and Write Tweets ---
+
+
+            // --- Process Input Files (Always Run) ---
+            // Instantiate processors right before processing
+            logger.info("Initializing file processors...");
+            SingleTweetFileProcessor singleFileProcessor = new SingleTweetFileProcessor(dirManager, discordNotifier); // Pass only needed dependencies
+            tweetProcessor = new TweetProcessor(dirManager, singleFileProcessor); // Instantiate the main processor
+
+            logger.info("Processing existing files in input directory and notifying Discord...");
+            tweetProcessor.processInputFiles(); // This call now happens regardless of tweet fetch success
+            // --- End Process Input Files ---
+
+
+            logger.info("Main processing cycle complete.");
 
         } catch (Exception e) {
-            logger.error("An unhandled error occurred during execution: {}", e.getMessage(), e);
+            // Catch initialization or other critical errors
+            logger.error("A critical unhandled error occurred during execution: {}", e.getMessage(), e);
             System.exit(1);
         } finally {
+            // --- Shutdown ---
             logger.info("Initiating shutdown sequence...");
             if (discordNotifier != null) {
                 discordNotifier.shutdown();
             }
+            // Add shutdown for other services if necessary (e.g., TwitchClient if it held resources)
             logger.info("Application finished.");
         }
     }
