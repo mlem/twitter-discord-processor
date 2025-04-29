@@ -56,19 +56,11 @@ This guide explains how to install your Java application on a Linux server using
     ```bash
     nano run_processor.sh
     ```
-    Paste/update the following content, **replacing placeholders** and ensuring the JAR file finding logic is correct:
-
+    
+    Paste/update the following content and ensuring the JAR file finding logic is correct:
     ```bash
     #!/bin/bash
 
-    # --- Configuration ---
-    # !! IMPORTANT: Set your actual secrets here !!
-    export TWITTER_BEARER_TOKEN="YOUR_ACTUAL_TWITTER_BEARER_TOKEN"
-    export DISCORD_BOT_TOKEN="YOUR_ACTUAL_DISCORD_BOT_TOKEN"
-    export TWITCH_CLIENT_ID="YOUR_ACTUAL_TWITCH_CLIENT_ID"
-    export TWITCH_CLIENT_SECRET="YOUR_ACTUAL_TWITCH_CLIENT_SECRET"
-    # Optional: Set TWITTER_USERNAME here if you don't want to rely on config.properties
-    # export TWITTER_USERNAME="your_twitter_username"
 
     # --- Application Execution ---
     # Get the directory where the script is located
@@ -108,6 +100,21 @@ This guide explains how to install your Java application on a Linux server using
 2.  **Make the Script Executable:**
     ```bash
     chmod +x run_processor.sh
+    ```
+    
+3. **Update your bashrc**
+
+   Paste/update the following content to your `.bashrc`, **replacing placeholders**:
+    ```bash 
+    
+        # --- Configuration ---
+        # !! IMPORTANT: Set your actual secrets here !!
+        export TWITTER_BEARER_TOKEN="YOUR_ACTUAL_TWITTER_BEARER_TOKEN"
+        export DISCORD_BOT_TOKEN="YOUR_ACTUAL_DISCORD_BOT_TOKEN"
+        export TWITCH_CLIENT_ID="YOUR_ACTUAL_TWITCH_CLIENT_ID"
+        export TWITCH_CLIENT_SECRET="YOUR_ACTUAL_TWITCH_CLIENT_SECRET"
+        # Optional: Set TWITTER_USERNAME here if you don't want to rely on config.properties
+        # export TWITTER_USERNAME="your_twitter_username"
     ```
 
 ## Cron Job Setup
