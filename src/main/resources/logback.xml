@@ -1,4 +1,4 @@
-<configuration>
+<configuration scan="true" scanPeriod="10 minutes">
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
 
     <define name="ROOT_LOG_DIR" class="com.example.log.LogsDirLogBackPropertyDefiner">
