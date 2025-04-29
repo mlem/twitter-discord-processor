@@ -2,7 +2,7 @@ package com.example.twitter;
 
 import io.github.redouane59.twitter.TwitterClient;
 import io.github.redouane59.twitter.dto.tweet.Tweet;
-import io.github.redouane59.twitter.dto.tweet.TweetV2;
+import io.github.redouane59.twitter.dto.tweet.TweetV2; // User's version uses this
 import io.github.redouane59.twitter.dto.user.User;
 import io.github.redouane59.twitter.dto.tweet.TweetList;
 import io.github.redouane59.twitter.dto.endpoints.AdditionalParameters;
@@ -10,9 +10,9 @@ import io.github.redouane59.twitter.signature.TwitterCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
+import java.time.LocalDateTime; // Added based on previous logic
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Arrays; // User's version uses this
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -23,7 +23,8 @@ public class TwitterService {
     private static final Logger logger = LoggerFactory.getLogger(TwitterService.class);
 
     private final TwitterClient twitterClient;
-    private final String twitterUsername; // The username whose timeline to fetch
+    private final String twitterUsername;
+    // User object is fetched per-request in user's version
 
     public TwitterService(String bearerToken, String username) {
         if (bearerToken == null || username == null) {
@@ -36,14 +37,14 @@ public class TwitterService {
                 .bearerToken(bearerToken)
                 .build();
         this.twitterClient = new TwitterClient(credentials);
-        twitterClient.setAutomaticRetry(false);
+        twitterClient.setAutomaticRetry(false); // Added by user
     }
 
     // Helper method to fetch the User object (including profile image)
     private User fetchTwitterUserObject() {
         logger.info("Fetching Twitter user object for username: {}", this.twitterUsername);
         try {
-            User user = twitterClient.getUserFromUserName(this.twitterUsername);
+            User user = twitterClient.getUserFromUserName(this.twitterUsername); // Pass params here
             if (user == null) {
                 logger.error("Failed to retrieve user data object for username: {}", this.twitterUsername);
             } else {
@@ -53,8 +54,14 @@ public class TwitterService {
             return user;
         } catch (Exception e) {
             logger.error("Exception fetching Twitter user object for {}: {}", this.twitterUsername, e.getMessage(), e);
-            return null;
+            return null; // Return null if fetching fails
         }
+    }
+
+
+    // Helper function to safely get toString or "null"
+    private String safeToString(Object obj) {
+        return obj == null ? "null" : obj.toString();
     }
 
     /**
@@ -66,21 +73,21 @@ public class TwitterService {
      * @param twitchChannelUrl Fetched Twitch channel URL.
      * @return List of TweetData objects containing all context.
      */
+    // Updated signature based on previous logic
     public List<TweetData> fetchTimelineTweets(int maxResults,
-                                               String twitchUsername, // Added Twitch params
+                                               String twitchUsername,
                                                String twitchProfileImageUrl,
                                                String twitchChannelUrl) {
-        User twitterUser = fetchTwitterUserObject();
+        User twitterUser = fetchTwitterUserObject(); // Fetch fresh user object each time
 
         if (twitterUser == null) {
             logger.error("Cannot fetch timeline because the user object fetch failed for {}", this.twitterUsername);
-            return Collections.emptyList();
+            return Collections.emptyList(); // Cannot proceed without user ID
         }
         String userId = twitterUser.getId();
         logger.info("Attempting to fetch timeline tweets for user: {} (ID: {}), max results: {}", twitterUsername, userId, maxResults);
 
         try {
-
             TweetList tweetList = twitterClient.getUserTimeline(userId);
 
             if (tweetList == null || tweetList.getData() == null) {
@@ -90,22 +97,26 @@ public class TwitterService {
             logger.info("Successfully fetched {} tweets from timeline.", tweetList.getData().size());
 
             List<TweetData> tweetDataList = new ArrayList<>();
+            // Use TweetV2.MediaEntityV2 as per user's version
             List<TweetV2.MediaEntityV2> includedMedia = (tweetList.getIncludes() != null && tweetList.getIncludes().getMedia() != null)
                     ? tweetList.getIncludes().getMedia() : Collections.emptyList();
 
+            // Prepare author details (using the freshly fetched user object)
             String authorName = twitterUser.getName();
             String authorProfileUrl = "https://x.com/" + twitterUser.getName();
             String authorProfileImageUrl = twitterUser.getProfileImageUrl();
 
             for (Tweet tweet : tweetList.getData()) {
                 String tweetUrl = "https://x.com/" + this.twitterUsername + "/status/" + tweet.getId();
-                LocalDateTime createdAt = tweet.getCreatedAt();
+                LocalDateTime createdAt = tweet.getCreatedAt(); // Get createdAt timestamp
                 List<String> imageUrls = new ArrayList<>();
 
                 if (tweet.getAttachments() != null && tweet.getAttachments().getMediaKeys() != null) {
-                    List<String> mediaKeys = Arrays.asList(tweet.getAttachments().getMediaKeys());
+                    // Use Arrays.stream().toList() as per user's version
+                    List<String> mediaKeys = Arrays.stream(tweet.getAttachments().getMediaKeys()).toList();
                     logger.debug("Tweet {} has media keys: {}", tweet.getId(), mediaKeys);
                     imageUrls = includedMedia.stream()
+                            // Use getKey() as per user's version (TweetV2.MediaEntityV2)
                             .filter(media -> mediaKeys.contains(media.getKey()) && "photo".equals(media.getType()))
                             .map(TweetV2.MediaEntityV2::getUrl)
                             .filter(Objects::nonNull)
@@ -115,20 +126,36 @@ public class TwitterService {
                     logger.debug("Tweet {} has no media attachments.", tweet.getId());
                 }
 
-                // Create TweetData with all context
+
+                // Create TweetData with all context (based on previous logic)
                 tweetDataList.add(new TweetData(
+                        // Core Tweet
                         tweet.getId(),
                         tweet.getText(),
-                        tweetUrl,
-                        imageUrls,
+                        tweetUrl, // Derived URL
+                        imageUrls, // Derived image URLs
                         createdAt,
+                        // Author
                         authorName,
-                        authorProfileUrl,
+                        authorProfileUrl, // Derived URL
                         authorProfileImageUrl,
-                        twitchUsername, // Pass Twitch context
+                        // Twitch
+                        twitchUsername,
                         twitchProfileImageUrl,
-                        twitchChannelUrl
-                ));
+                        twitchChannelUrl,
+                        // Additional Raw Tweet Fields
+                        tweet.getAuthorId(),
+                        tweet.getConversationId(),
+                        tweet.getLang(),
+                        tweet.getSource(),
+                        tweet.getReplySettings().toString(),
+                        tweet.getInReplyToUserId(),
+                        // Convert complex objects to string
+                        safeToString(tweet.getEntities()),
+                        safeToString(tweet.getAttachments()),
+                        safeToString(tweet.getGeo())
+                        )
+                );
             }
             logger.info("Processed {} tweets into TweetData objects.", tweetDataList.size());
             return tweetDataList;

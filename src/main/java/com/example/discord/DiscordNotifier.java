@@ -1,7 +1,7 @@
 package com.example.discord;
 
 import com.example.file.TweetWriter;
-// import com.example.twitch.TwitchUserInfo; // No longer needed as parameter
+// TwitchUserInfo no longer needed as parameter
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -25,7 +25,9 @@ import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-// import java.util.Optional; // No longer needed
+import java.util.HashMap; // Import HashMap
+import java.util.Map; // Import Map
+// Optional no longer needed
 
 public class DiscordNotifier {
 
@@ -68,49 +70,47 @@ public class DiscordNotifier {
         try {
             List<String> lines = FileUtils.readLines(tweetFile, StandardCharsets.UTF_8);
 
-            // --- Parse Data from File ---
-            String tweetText = "";
-            String tweetUrl = "";
-            List<String> imageUrls = Collections.emptyList();
-            String createdAtString = null;
-            String authorName = null;
-            String authorProfileUrl = null;
-            String authorImageUrl = null;
-            String twitchUsername = null; // Variable for Twitch username
-            String twitchImageUrl = null; // Variable for Twitch logo
-            // String twitchChannelUrl = null; // Parse if needed later
-
+            // --- Parse Data from File into a Map ---
+            Map<String, String> data = new HashMap<>();
             for (String line : lines) {
-                if (line.startsWith("Text: ")) tweetText = line.substring("Text: ".length()).replaceAll("###n###", "\n");
-                else if (line.startsWith("URL: ")) tweetUrl = line.substring("URL: ".length());
-                else if (line.startsWith("ImageURLs: ")) {
-                    String urlsPart = line.substring("ImageURLs: ".length());
-                    if (!urlsPart.trim().isEmpty()) {
-                        imageUrls = Arrays.asList(urlsPart.split(TweetWriter.IMAGE_URL_SEPARATOR));
-                    }
+                int separatorIndex = line.indexOf(": ");
+                if (separatorIndex > 0) {
+                    String key = line.substring(0, separatorIndex);
+                    String value = line.substring(separatorIndex + 2); // Skip ": "
+                    data.put(key, value);
+                } else {
+                    logger.trace("Skipping malformed line in {}: {}", tweetFile.getName(), line);
                 }
-                else if (line.startsWith("CreatedAt: ")) createdAtString = line.substring("CreatedAt: ".length());
-                else if (line.startsWith("AuthorName: ")) authorName = line.substring("AuthorName: ".length());
-                else if (line.startsWith("AuthorProfileURL: ")) authorProfileUrl = line.substring("AuthorProfileURL: ".length());
-                else if (line.startsWith("AuthorImageURL: ")) authorImageUrl = line.substring("AuthorImageURL: ".length());
-                    // Parse Twitch info
-                else if (line.startsWith("TwitchUsername: ")) twitchUsername = line.substring("TwitchUsername: ".length());
-                else if (line.startsWith("TwitchImageURL: ")) twitchImageUrl = line.substring("TwitchImageURL: ".length());
-                // else if (line.startsWith("TwitchChannelURL: ")) twitchChannelUrl = line.substring("TwitchChannelURL: ".length());
             }
-            logger.debug("Parsed from {}: Author='{}', TwitchUser='{}', Text='{}...', URL='{}', ImageCount={}, CreatedAt='{}', TwitchLogo={}",
-                    tweetFile.getName(), authorName, twitchUsername, tweetText.substring(0, Math.min(tweetText.length(), 30)),
-                    tweetUrl, imageUrls.size(), createdAtString, (twitchImageUrl != null && !twitchImageUrl.isEmpty()));
 
-            if (tweetText.isEmpty() || tweetUrl.isEmpty() || authorName == null || authorName.isEmpty()) {
+            // Extract required fields, handling potential missing keys
+            String tweetText = data.getOrDefault("Text", "").replaceAll("###n###", "\n");
+            String tweetUrl = data.getOrDefault("URL", "");
+            String authorName = data.getOrDefault("AuthorName", "");
+            String authorProfileUrl = data.getOrDefault("AuthorProfileURL", "");
+            String authorImageUrl = data.getOrDefault("AuthorImageURL", "");
+            String createdAtString = data.getOrDefault("CreatedAt", "");
+            String imageUrlsString = data.getOrDefault("ImageURLs", "");
+            String twitchImageUrl = data.getOrDefault("TwitchImageURL", ""); // Get Twitch logo URL
+
+            List<String> imageUrls = Collections.emptyList();
+            if (!imageUrlsString.isEmpty()) {
+                imageUrls = Arrays.asList(imageUrlsString.split(TweetWriter.IMAGE_URL_SEPARATOR));
+            }
+
+            logger.debug("Parsed from {}: Author='{}', Text='{}...', URL='{}', ImageCount={}, CreatedAt='{}', TwitchLogo={}",
+                    tweetFile.getName(), authorName, tweetText.substring(0, Math.min(tweetText.length(), 30)),
+                    tweetUrl, imageUrls.size(), createdAtString, !twitchImageUrl.isEmpty());
+
+            if (tweetText.isEmpty() || tweetUrl.isEmpty() || authorName.isEmpty()) {
                 logger.error("Could not parse required fields (Text, URL, AuthorName) from file: {}", tweetFile.getName());
                 return false;
             }
             // --- End Parsing ---
 
-            // --- Parse Timestamp (remains the same) ---
-            Instant timestamp = Instant.now();
-            if (createdAtString != null && !createdAtString.isEmpty()) {
+            // --- Parse Timestamp ---
+            Instant timestamp = Instant.now(); // Default to now
+            if (!createdAtString.isEmpty()) {
                 try {
                     LocalDateTime localDateTime = LocalDateTime.parse(createdAtString, DateTimeFormatter.ISO_DATE_TIME);
                     timestamp = localDateTime.toInstant(ZoneOffset.UTC);
@@ -122,7 +122,6 @@ public class DiscordNotifier {
                 logger.warn("CreatedAt timestamp missing in file {}. Using current time for embed.", tweetFile.getName());
             }
             // --- End Parse Timestamp ---
-
 
             TextChannel channel = jda.getTextChannelById(channelId);
             if (channel == null) {
@@ -142,11 +141,11 @@ public class DiscordNotifier {
             // Set Author (using parsed Twitter info)
             embedBuilder.setAuthor(
                     authorName,
-                    (authorProfileUrl != null && !authorProfileUrl.isEmpty()) ? authorProfileUrl : null,
-                    (authorImageUrl != null && !authorImageUrl.isEmpty()) ? authorImageUrl : null
+                    (!authorProfileUrl.isEmpty()) ? authorProfileUrl : null,
+                    (!authorImageUrl.isEmpty()) ? authorImageUrl : null
             );
 
-            // Handle Tweet Text based on Length (remains the same)
+            // Handle Tweet Text based on Length
             boolean textIsLong = tweetText.length() > MessageEmbed.DESCRIPTION_MAX_LENGTH;
             String embedDescription;
             String extraTextMessage = null;
@@ -159,14 +158,14 @@ public class DiscordNotifier {
             embedBuilder.setDescription(embedDescription);
 
             // Set Thumbnail using parsed Twitch logo URL
-            if (twitchImageUrl != null && !twitchImageUrl.isEmpty()) {
+            if (!twitchImageUrl.isEmpty()) {
                 embedBuilder.setThumbnail(twitchImageUrl);
                 logger.debug("Set embed thumbnail using Twitch logo URL from file: {}", twitchImageUrl);
             } else {
                 logger.debug("No Twitch image URL found in file {}, thumbnail not set.", tweetFile.getName());
             }
 
-            // Set Image using the first image from the tweet (remains the same)
+            // Set Image using the first image from the tweet
             if (!imageUrls.isEmpty() && imageUrls.get(0) != null && !imageUrls.get(0).isEmpty()) {
                 embedBuilder.setImage(imageUrls.get(0));
             }

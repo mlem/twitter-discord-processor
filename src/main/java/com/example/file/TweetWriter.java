@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList; // Import ArrayList
+import java.util.List; // Import List
 import java.util.stream.Collectors;
 
 public class TweetWriter {
@@ -23,11 +25,21 @@ public class TweetWriter {
         logger.info("TweetWriter initialized for input directory: {}", inputDirPath);
     }
 
+    // Helper to handle nulls gracefully for writing
+    private String formatValue(String prefix, Object value) {
+        String stringValue = (value == null) ? "" : value.toString();
+        // Escape newlines within the value itself if necessary, using the same marker
+        stringValue = stringValue.replaceAll("\n", "###n###");
+        return prefix + stringValue;
+    }
+
     public void writeTweetToFile(TweetData tweetData) {
         String fileName = "tweet_" + tweetData.getId() + ".txt";
         File outputFile = inputDirPath.resolve(fileName).toFile();
         logger.debug("Preparing to write tweet {} to file: {}", tweetData.getId(), outputFile.getAbsolutePath());
 
+
+        // Format known complex values or values needing specific formatting
         String imageUrlsString = tweetData.getImageUrls().isEmpty()
                 ? ""
                 : tweetData.getImageUrls().stream().collect(Collectors.joining(IMAGE_URL_SEPARATOR));
@@ -39,27 +51,36 @@ public class TweetWriter {
             } catch (Exception e) {
                 logger.error("Error formatting createdAt timestamp for tweet {}: {}", tweetData.getId(), e.getMessage());
             }
-        } else {
-            logger.warn("Tweet {} has null createdAt timestamp.", tweetData.getId());
         }
 
-        // Define lines including all context
-        String line1 = "Text: " + tweetData.getText().replaceAll("\n", "###n###");
-        String line2 = "URL: " + tweetData.getUrl();
-        String line3 = "ImageURLs: " + imageUrlsString;
-        String line4 = "CreatedAt: " + createdAtString;
+        // Build list of lines to write
+        List<String> lines = new ArrayList<>();
+        lines.add(formatValue("Text: ", tweetData.getText())); // Apply ###n### replacement here too
+        lines.add(formatValue("URL: ", tweetData.getUrl()));
+        lines.add("ImageURLs: " + imageUrlsString); // Already formatted
+        lines.add("CreatedAt: " + createdAtString); // Already formatted
         // Twitter Author
-        String line5 = "AuthorName: " + (tweetData.getAuthorName() != null ? tweetData.getAuthorName() : "");
-        String line6 = "AuthorProfileURL: " + (tweetData.getAuthorProfileUrl() != null ? tweetData.getAuthorProfileUrl() : "");
-        String line7 = "AuthorImageURL: " + (tweetData.getAuthorProfileImageUrl() != null ? tweetData.getAuthorProfileImageUrl() : "");
+        lines.add(formatValue("AuthorName: ", tweetData.getAuthorName()));
+        lines.add(formatValue("AuthorProfileURL: ", tweetData.getAuthorProfileUrl()));
+        lines.add(formatValue("AuthorImageURL: ", tweetData.getAuthorProfileImageUrl()));
         // Twitch Context
-        String line8 = "TwitchUsername: " + (tweetData.getTwitchUsername() != null ? tweetData.getTwitchUsername() : "");
-        String line9 = "TwitchImageURL: " + (tweetData.getTwitchProfileImageUrl() != null ? tweetData.getTwitchProfileImageUrl() : "");
-        String line10= "TwitchChannelURL: " + (tweetData.getTwitchChannelUrl() != null ? tweetData.getTwitchChannelUrl() : "");
+        lines.add(formatValue("TwitchUsername: ", tweetData.getTwitchUsername()));
+        lines.add(formatValue("TwitchImageURL: ", tweetData.getTwitchProfileImageUrl()));
+        lines.add(formatValue("TwitchChannelURL: ", tweetData.getTwitchChannelUrl()));
+        // Additional Raw Tweet Fields
+        lines.add(formatValue("TweetAuthorId: ", tweetData.getTweetAuthorId()));
+        lines.add(formatValue("TweetConversationId: ", tweetData.getTweetConversationId()));
+        lines.add(formatValue("TweetLang: ", tweetData.getTweetLang()));
+        lines.add(formatValue("TweetSource: ", tweetData.getTweetSource()));
+        lines.add(formatValue("TweetReplySettings: ", tweetData.getTweetReplySettings()));
+        lines.add(formatValue("TweetInReplyToUserId: ", tweetData.getTweetInReplyToUserId()));
+        lines.add(formatValue("TweetEntities: ", tweetData.getTweetEntitiesStr()));
+        lines.add(formatValue("TweetAttachments: ", tweetData.getTweetAttachmentsStr()));
+        lines.add(formatValue("TweetGeo: ", tweetData.getTweetGeoStr()));
 
 
         // Join all lines
-        String content = String.join("\n", line1, line2, line3, line4, line5, line6, line7, line8, line9, line10);
+        String content = String.join("\n", lines);
 
         try {
             FileUtils.writeStringToFile(outputFile, content, StandardCharsets.UTF_8);

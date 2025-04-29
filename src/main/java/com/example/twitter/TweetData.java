@@ -7,52 +7,83 @@ import java.util.Objects;
 
 /**
  * Holds processed information about a single tweet, its author,
- * and associated Twitch context.
+ * associated Twitch context, and additional raw tweet fields.
  */
 public class TweetData {
-    // Twitter Tweet Info
+    // --- Core Tweet Info ---
     private final String id;
     private final String text;
-    private final String url;
-    private final List<String> imageUrls;
+    private final String url; // Derived URL
+    private final List<String> imageUrls; // Derived image URLs
     private final LocalDateTime createdAt;
 
-    // Twitter Author Info
+    // --- Twitter Author Info ---
     private final String authorName;
-    private final String authorProfileUrl;
+    private final String authorProfileUrl; // Derived URL
     private final String authorProfileImageUrl;
 
-    // Twitch Context Info
-    private final String twitchUsername; // The configured Twitch username
-    private final String twitchProfileImageUrl; // Fetched Twitch profile image URL
-    // twitchChannelUrl is not strictly needed downstream if we only use the logo,
-    // but keeping it for potential future use or completeness.
+    // --- Twitch Context Info ---
+    private final String twitchUsername;
+    private final String twitchProfileImageUrl;
     private final String twitchChannelUrl;
 
-    public TweetData(String id, String text, String url, List<String> imageUrls,
-                     LocalDateTime createdAt,
-                     String authorName, String authorProfileUrl, String authorProfileImageUrl,
-                     String twitchUsername, String twitchProfileImageUrl, String twitchChannelUrl) { // Added Twitch params
-        // Twitter Tweet
+    // --- Additional Raw Tweet Fields ---
+    private final String tweetAuthorId; // From Tweet object
+    private final String tweetConversationId; // From Tweet object
+    private final String tweetLang; // From Tweet object
+    private final String tweetSource; // From Tweet object
+    private final String tweetReplySettings; // From Tweet object
+    private final String tweetInReplyToUserId; // From Tweet object
+    // Store complex objects as strings
+    private final String tweetEntitiesStr;
+    private final String tweetAttachmentsStr;
+    private final String tweetGeoStr;
+
+
+    // Updated Constructor
+    public TweetData(
+            // Core Tweet
+            String id, String text, String url, List<String> imageUrls, LocalDateTime createdAt,
+            // Author
+            String authorName, String authorProfileUrl, String authorProfileImageUrl,
+            // Twitch
+            String twitchUsername, String twitchProfileImageUrl, String twitchChannelUrl,
+            // Additional Raw Tweet Fields
+            String tweetAuthorId, String tweetConversationId, String tweetLang, String tweetSource,
+            String tweetReplySettings, String tweetInReplyToUserId, String tweetEntitiesStr, String tweetAttachmentsStr,
+            String tweetGeoStr
+    ) {
+        // Core Tweet
         this.id = Objects.requireNonNull(id, "Tweet ID cannot be null");
         this.text = Objects.requireNonNull(text, "Tweet text cannot be null");
         this.url = Objects.requireNonNull(url, "Tweet URL cannot be null");
         this.imageUrls = (imageUrls != null) ? Collections.unmodifiableList(imageUrls) : Collections.emptyList();
         this.createdAt = createdAt;
 
-        // Twitter Author
+        // Author
         this.authorName = authorName;
         this.authorProfileUrl = authorProfileUrl;
         this.authorProfileImageUrl = authorProfileImageUrl;
 
-        // Twitch Context
-        this.twitchUsername = twitchUsername; // Store configured Twitch username
-        this.twitchProfileImageUrl = twitchProfileImageUrl; // Store fetched Twitch logo URL (can be null)
-        this.twitchChannelUrl = twitchChannelUrl; // Store fetched Twitch channel URL (can be null)
+        // Twitch
+        this.twitchUsername = twitchUsername;
+        this.twitchProfileImageUrl = twitchProfileImageUrl;
+        this.twitchChannelUrl = twitchChannelUrl;
+
+        // Additional Raw Tweet
+        this.tweetAuthorId = tweetAuthorId;
+        this.tweetConversationId = tweetConversationId;
+        this.tweetLang = tweetLang;
+        this.tweetSource = tweetSource;
+        this.tweetReplySettings = tweetReplySettings;
+        this.tweetInReplyToUserId = tweetInReplyToUserId;
+        this.tweetEntitiesStr = tweetEntitiesStr;
+        this.tweetAttachmentsStr = tweetAttachmentsStr;
+        this.tweetGeoStr = tweetGeoStr;
     }
 
     // --- Getters ---
-    // Twitter Tweet
+    // Core Tweet
     public String getId() { return id; }
     public String getText() { return text; }
     public String getUrl() { return url; }
@@ -66,22 +97,28 @@ public class TweetData {
     public String getTwitchUsername() { return twitchUsername; }
     public String getTwitchProfileImageUrl() { return twitchProfileImageUrl; }
     public String getTwitchChannelUrl() { return twitchChannelUrl; }
+    // Additional Raw Tweet
+    public String getTweetAuthorId() { return tweetAuthorId; }
+    public String getTweetConversationId() { return tweetConversationId; }
+    public String getTweetLang() { return tweetLang; }
+    public String getTweetSource() { return tweetSource; }
+    public String getTweetReplySettings() { return tweetReplySettings; }
+    public String getTweetInReplyToUserId() { return tweetInReplyToUserId; }
+    public String getTweetEntitiesStr() { return tweetEntitiesStr; }
+    public String getTweetAttachmentsStr() { return tweetAttachmentsStr; }
+    public String getTweetGeoStr() { return tweetGeoStr; }
 
 
     @Override
     public String toString() {
+        // Basic toString for logging brevity
         return "TweetData{" +
                 "id='" + id + '\'' +
                 ", text='" + text.substring(0, Math.min(text.length(), 20)) + "...'" +
-                ", url='" + url + '\'' +
-                ", imageUrlsCount=" + imageUrls.size() +
                 ", createdAt=" + createdAt +
                 ", authorName='" + authorName + '\'' +
-                ", authorProfileUrl='" + authorProfileUrl + '\'' +
-                ", authorProfileImageUrl='" + (authorProfileImageUrl != null ? "present" : "null") + '\'' +
-                ", twitchUsername='" + twitchUsername + '\'' + // Added Twitch info
-                ", twitchProfileImageUrl='" + (twitchProfileImageUrl != null ? "present" : "null") + '\'' +
-                ", twitchChannelUrl='" + twitchChannelUrl + '\'' +
+                ", twitchUsername='" + twitchUsername + '\'' +
+                // Indicate presence of other fields if needed
                 '}';
     }
 }
