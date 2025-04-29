@@ -1,10 +1,9 @@
 package com.example;
 
-import com.example.args.CommandLineArgs; // Import new args class
-import com.example.config.AppConfig; // Import new config class
-import com.example.core.ApplicationService; // Import new service class
-import com.example.core.ServiceRegistry; // Import new registry class
-import com.example.discord.DiscordNotifier; // Still needed for shutdown
+import com.example.args.CommandLineArgs;
+import com.example.config.AppConfig;
+import com.example.core.ApplicationService;
+import com.example.core.ServiceRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +12,7 @@ import java.util.Optional;
 /**
  * Main entry point for the Twitter-Discord Processor application.
  * Initializes configuration, services, and runs the main processing cycle.
+ * Delegates shutdown to the ServiceRegistry.
  */
 public class Main {
 
@@ -56,21 +56,14 @@ public class Main {
         } finally {
             // --- Shutdown ---
             logger.info("Initiating shutdown sequence...");
-            // Ensure services were actually initialized before trying to shut down
+            // Delegate shutdown logic to the ServiceRegistry
             if (serviceRegistry != null) {
-                DiscordNotifier discordNotifier = serviceRegistry.getDiscordNotifier();
-                if (discordNotifier != null) {
-                    // Attempt graceful shutdown of Discord connection
-                    try {
-                        discordNotifier.shutdown();
-                    } catch (Exception e) {
-                        logger.error("Error during DiscordNotifier shutdown: {}", e.getMessage(), e);
-                    }
-                } else {
-                    logger.warn("DiscordNotifier was not available in ServiceRegistry, skipping shutdown.");
+                try {
+                    serviceRegistry.shutdown(); // Call the registry's shutdown method
+                } catch (Exception e) {
+                    // Catch potential errors during the overall shutdown process
+                    logger.error("Error during ServiceRegistry shutdown: {}", e.getMessage(), e);
                 }
-                // Add shutdown logic for other services here if necessary (e.g., TwitchClient)
-
             } else {
                 logger.warn("ServiceRegistry was not initialized, cannot perform service shutdown.");
             }
