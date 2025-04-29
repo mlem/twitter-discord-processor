@@ -1,7 +1,6 @@
 package com.example.file;
 
 import com.example.discord.DiscordNotifier;
-import com.example.twitch.TwitchUserInfo; // Import Twitch info holder
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,11 +10,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional; // Import Optional
 
 /**
  * Handles the processing logic for a single tweet file,
  * including checks, consumption, moving, and per-file logging via MDC.
+ * Assumes all necessary context is within the file itself.
  */
 public class SingleTweetFileProcessor {
 
@@ -26,17 +25,13 @@ public class SingleTweetFileProcessor {
     private final Path processedDir;
     private final Path failedDir;
     private final Path binDir;
-    private final Optional<TwitchUserInfo> twitchInfo; // Store Twitch info
 
-    // Updated constructor
     public SingleTweetFileProcessor(DirectoryManager directoryManager,
-                                    DiscordNotifier discordNotifier,
-                                    Optional<TwitchUserInfo> twitchInfo) { // Accept Twitch info
+                                    DiscordNotifier discordNotifier) {
         this.discordNotifier = discordNotifier;
         this.processedDir = directoryManager.getProcessedDir();
         this.failedDir = directoryManager.getFailedDir();
         this.binDir = directoryManager.getBinDir();
-        this.twitchInfo = twitchInfo; // Store it
     }
 
     /**
@@ -74,8 +69,8 @@ public class SingleTweetFileProcessor {
             logger.info("Attempting to send to Discord...");
             boolean success;
             try {
-                // Pass twitchInfo to consume method
-                success = discordNotifier.consume(inputFile, this.twitchInfo);
+                // Call consume without twitchInfo
+                success = discordNotifier.consume(inputFile);
                 if (success) {
                     logger.info("Successfully consumed and queued message for Discord.");
                 } else {

@@ -1,7 +1,7 @@
 package com.example.discord;
 
 import com.example.file.TweetWriter;
-import com.example.twitch.TwitchUserInfo;
+// import com.example.twitch.TwitchUserInfo; // No longer needed as parameter
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -18,17 +18,21 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+// import java.util.Optional; // No longer needed
 
 public class DiscordNotifier {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscordNotifier.class);
     private final JDA jda;
     private final String channelId;
-    private static final int MAX_STANDARD_MESSAGE_LENGTH = 2000; // Discord standard message limit
+    private static final int MAX_STANDARD_MESSAGE_LENGTH = 2000;
 
     public DiscordNotifier(String botToken, String channelId) throws LoginException, InterruptedException {
         // Initialization remains the same...
@@ -53,24 +57,28 @@ public class DiscordNotifier {
     }
 
     /**
-     * Consumes a tweet file and sends a formatted embed (and potentially extra text messages) to Discord.
+     * Consumes a tweet file containing all context and sends an embed to Discord.
      *
-     * @param tweetFile The file containing tweet data.
-     * @param twitchInfo Optional containing Twitch user info (profile image, channel URL).
+     * @param tweetFile The file containing tweet, author, and twitch data.
      * @return True if the message(s) were successfully queued, false otherwise.
      */
-    public boolean consume(File tweetFile, Optional<TwitchUserInfo> twitchInfo) {
-        logger.info("Consuming tweet file: {} with Twitch info present: {}", tweetFile.getName(), twitchInfo.isPresent());
+    // Removed twitchInfo parameter
+    public boolean consume(File tweetFile) {
+        logger.info("Consuming tweet context file: {}", tweetFile.getName());
         try {
             List<String> lines = FileUtils.readLines(tweetFile, StandardCharsets.UTF_8);
 
-            // --- Parse Data from File (remains the same) ---
+            // --- Parse Data from File ---
             String tweetText = "";
             String tweetUrl = "";
             List<String> imageUrls = Collections.emptyList();
+            String createdAtString = null;
             String authorName = null;
             String authorProfileUrl = null;
             String authorImageUrl = null;
+            String twitchUsername = null; // Variable for Twitch username
+            String twitchImageUrl = null; // Variable for Twitch logo
+            // String twitchChannelUrl = null; // Parse if needed later
 
             for (String line : lines) {
                 if (line.startsWith("Text: ")) tweetText = line.substring("Text: ".length()).replaceAll("###n###", "\n");
@@ -81,18 +89,39 @@ public class DiscordNotifier {
                         imageUrls = Arrays.asList(urlsPart.split(TweetWriter.IMAGE_URL_SEPARATOR));
                     }
                 }
+                else if (line.startsWith("CreatedAt: ")) createdAtString = line.substring("CreatedAt: ".length());
                 else if (line.startsWith("AuthorName: ")) authorName = line.substring("AuthorName: ".length());
                 else if (line.startsWith("AuthorProfileURL: ")) authorProfileUrl = line.substring("AuthorProfileURL: ".length());
                 else if (line.startsWith("AuthorImageURL: ")) authorImageUrl = line.substring("AuthorImageURL: ".length());
+                    // Parse Twitch info
+                else if (line.startsWith("TwitchUsername: ")) twitchUsername = line.substring("TwitchUsername: ".length());
+                else if (line.startsWith("TwitchImageURL: ")) twitchImageUrl = line.substring("TwitchImageURL: ".length());
+                // else if (line.startsWith("TwitchChannelURL: ")) twitchChannelUrl = line.substring("TwitchChannelURL: ".length());
             }
-            logger.debug("Parsed from {}: Author='{}', Text='{}...', URL='{}', ImageCount={}",
-                    tweetFile.getName(), authorName, tweetText.substring(0, Math.min(tweetText.length(), 30)), tweetUrl, imageUrls.size());
+            logger.debug("Parsed from {}: Author='{}', TwitchUser='{}', Text='{}...', URL='{}', ImageCount={}, CreatedAt='{}', TwitchLogo={}",
+                    tweetFile.getName(), authorName, twitchUsername, tweetText.substring(0, Math.min(tweetText.length(), 30)),
+                    tweetUrl, imageUrls.size(), createdAtString, (twitchImageUrl != null && !twitchImageUrl.isEmpty()));
 
-            if (tweetText.isEmpty() || tweetUrl.isEmpty()) {
-                logger.error("Could not parse required fields (Text, URL) from file: {}", tweetFile.getName());
+            if (tweetText.isEmpty() || tweetUrl.isEmpty() || authorName == null || authorName.isEmpty()) {
+                logger.error("Could not parse required fields (Text, URL, AuthorName) from file: {}", tweetFile.getName());
                 return false;
             }
             // --- End Parsing ---
+
+            // --- Parse Timestamp (remains the same) ---
+            Instant timestamp = Instant.now();
+            if (createdAtString != null && !createdAtString.isEmpty()) {
+                try {
+                    LocalDateTime localDateTime = LocalDateTime.parse(createdAtString, DateTimeFormatter.ISO_DATE_TIME);
+                    timestamp = localDateTime.toInstant(ZoneOffset.UTC);
+                } catch (DateTimeParseException e) {
+                    logger.error("Failed to parse CreatedAt timestamp '{}' from file {}. Using current time. Error: {}",
+                            createdAtString, tweetFile.getName(), e.getMessage());
+                }
+            } else {
+                logger.warn("CreatedAt timestamp missing in file {}. Using current time for embed.", tweetFile.getName());
+            }
+            // --- End Parse Timestamp ---
 
 
             TextChannel channel = jda.getTextChannelById(channelId);
@@ -110,82 +139,65 @@ public class DiscordNotifier {
             embedBuilder.setTitle("X Relay", tweetUrl);
             embedBuilder.setColor(Color.CYAN);
 
-            // Set Author (remains the same)
-            if (authorName != null && !authorName.isEmpty()) {
-                embedBuilder.setAuthor(
-                        authorName,
-                        (authorProfileUrl != null && !authorProfileUrl.isEmpty()) ? authorProfileUrl : null,
-                        (authorImageUrl != null && !authorImageUrl.isEmpty()) ? authorImageUrl : null
-                );
-            } else {
-                logger.warn("Author name missing for tweet {}, cannot set embed author.", tweetUrl);
-            }
+            // Set Author (using parsed Twitter info)
+            embedBuilder.setAuthor(
+                    authorName,
+                    (authorProfileUrl != null && !authorProfileUrl.isEmpty()) ? authorProfileUrl : null,
+                    (authorImageUrl != null && !authorImageUrl.isEmpty()) ? authorImageUrl : null
+            );
 
-            // --- Handle Tweet Text based on Length ---
+            // Handle Tweet Text based on Length (remains the same)
             boolean textIsLong = tweetText.length() > MessageEmbed.DESCRIPTION_MAX_LENGTH;
             String embedDescription;
-            String extraTextMessage = null; // Will hold text if it's too long for embed
-
+            String extraTextMessage = null;
             if (textIsLong) {
-                logger.warn("Tweet text exceeds Discord embed description limit ({} chars). Sending full text separately.", MessageEmbed.DESCRIPTION_MAX_LENGTH);
-                // Option 1: Truncate description
-                // embedDescription = tweetText.substring(0, MessageEmbed.DESCRIPTION_MAX_LENGTH - 3) + "...";
-                // Option 2: Placeholder description
                 embedDescription = "(Full tweet text sent in separate message below)";
-                extraTextMessage = tweetText; // Store the full text to send later
+                extraTextMessage = tweetText;
             } else {
-                embedDescription = tweetText; // Fits entirely in description
+                embedDescription = tweetText;
             }
             embedBuilder.setDescription(embedDescription);
-            // --- End Handle Tweet Text ---
 
-
-            // Set Thumbnail using Twitch logo (remains the same)
-            twitchInfo.ifPresent(info -> {
-                if (info.profileImageUrl() != null && !info.profileImageUrl().isEmpty()) {
-                    embedBuilder.setThumbnail(info.profileImageUrl());
-                    logger.debug("Set embed thumbnail to Twitch logo: {}", info.profileImageUrl());
-                } else {
-                    logger.warn("Twitch user info present, but profile image URL is missing.");
-                }
-            });
+            // Set Thumbnail using parsed Twitch logo URL
+            if (twitchImageUrl != null && !twitchImageUrl.isEmpty()) {
+                embedBuilder.setThumbnail(twitchImageUrl);
+                logger.debug("Set embed thumbnail using Twitch logo URL from file: {}", twitchImageUrl);
+            } else {
+                logger.debug("No Twitch image URL found in file {}, thumbnail not set.", tweetFile.getName());
+            }
 
             // Set Image using the first image from the tweet (remains the same)
             if (!imageUrls.isEmpty() && imageUrls.get(0) != null && !imageUrls.get(0).isEmpty()) {
                 embedBuilder.setImage(imageUrls.get(0));
-                logger.debug("Set embed image to first tweet image: {}", imageUrls.get(0));
-                // Note: You could potentially add more image URLs as fields if the text is short
-                // but Discord has limits on the number and size of fields too.
             }
 
-            // Set Timestamp and Footer (remains the same)
-            embedBuilder.setTimestamp(Instant.now());
+            // Set Timestamp using the parsed timestamp
+            embedBuilder.setTimestamp(timestamp);
+
+            // Set Footer
             embedBuilder.setFooter("via https://github.com/mlem/twitter-discord-processor", null);
 
             // --- Send the Message(s) ---
             MessageEmbed embed = embedBuilder.build();
 
             logger.debug("Sending embed to Discord channel {}: Title='{}'", channelId, embed.getTitle());
-            // Send the embed first
             channel.sendMessageEmbeds(embed).queue(
                     success -> logger.info("Successfully sent embed for {} to Discord channel {}", tweetFile.getName(), channelId),
-                    error -> handleDiscordSendError(error, tweetFile.getName(), channelId, "embed") // Use helper for error logging
+                    error -> handleDiscordSendError(error, tweetFile.getName(), channelId, "embed")
             );
 
-            // If the text was too long, send it separately
             if (extraTextMessage != null) {
                 logger.info("Sending separate message(s) for long tweet text from file {}", tweetFile.getName());
-                // Split the message if it exceeds the standard 2000 char limit
                 List<String> messageChunks = splitMessage(extraTextMessage, MAX_STANDARD_MESSAGE_LENGTH);
                 for (String chunk : messageChunks) {
                     channel.sendMessage(chunk).queue(
                             success -> logger.debug("Successfully sent text chunk for {} to Discord channel {}", tweetFile.getName(), channelId),
-                            error -> handleDiscordSendError(error, tweetFile.getName(), channelId, "text chunk") // Use helper
+                            error -> handleDiscordSendError(error, tweetFile.getName(), channelId, "text chunk")
                     );
                 }
             }
 
-            return true; // Indicate successful attempt to process and queue
+            return true;
 
         } catch (IOException e) {
             logger.error("Failed to read tweet file {}: {}", tweetFile.getName(), e.getMessage(), e);
@@ -196,7 +208,7 @@ public class DiscordNotifier {
         }
     }
 
-    // Helper method to log Discord sending errors consistently
+    // Helper methods (handleDiscordSendError, splitMessage, shutdown) remain the same...
     private void handleDiscordSendError(Throwable error, String fileName, String channelId, String messageType) {
         if (error instanceof InsufficientPermissionException) {
             logger.error("Discord bot lacks permission (e.g., SEND_MESSAGES, EMBED_LINKS) to send {} in channel {}: {}", messageType, channelId, error.getMessage());
@@ -205,7 +217,6 @@ public class DiscordNotifier {
         }
     }
 
-    // Helper method to split long messages
     private List<String> splitMessage(String text, int maxLength) {
         if (text == null || text.length() <= maxLength) {
             return Collections.singletonList(text);
@@ -218,9 +229,7 @@ public class DiscordNotifier {
         return parts;
     }
 
-
     public void shutdown() {
-        // Shutdown remains the same...
         if (jda != null) {
             logger.info("Shutting down Discord Bot connection...");
             jda.shutdown();

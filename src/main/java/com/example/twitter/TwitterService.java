@@ -3,14 +3,16 @@ package com.example.twitter;
 import io.github.redouane59.twitter.TwitterClient;
 import io.github.redouane59.twitter.dto.tweet.Tweet;
 import io.github.redouane59.twitter.dto.tweet.TweetV2;
-import io.github.redouane59.twitter.dto.user.User; // Keep User import
+import io.github.redouane59.twitter.dto.user.User;
 import io.github.redouane59.twitter.dto.tweet.TweetList;
 import io.github.redouane59.twitter.dto.endpoints.AdditionalParameters;
 import io.github.redouane59.twitter.signature.TwitterCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -21,8 +23,7 @@ public class TwitterService {
     private static final Logger logger = LoggerFactory.getLogger(TwitterService.class);
 
     private final TwitterClient twitterClient;
-    private final String twitterUsername;
-    private User twitterUser; // Store the fetched user object
+    private final String twitterUsername; // The username whose timeline to fetch
 
     public TwitterService(String bearerToken, String username) {
         if (bearerToken == null || username == null) {
@@ -36,11 +37,9 @@ public class TwitterService {
                 .build();
         this.twitterClient = new TwitterClient(credentials);
         twitterClient.setAutomaticRetry(false);
-        // Fetch user initially - consider error handling if this fails
-        this.twitterUser = fetchTwitterUserObject();
     }
 
-    // Helper method to fetch the User object
+    // Helper method to fetch the User object (including profile image)
     private User fetchTwitterUserObject() {
         logger.info("Fetching Twitter user object for username: {}", this.twitterUsername);
         try {
@@ -54,27 +53,35 @@ public class TwitterService {
             return user;
         } catch (Exception e) {
             logger.error("Exception fetching Twitter user object for {}: {}", this.twitterUsername, e.getMessage(), e);
-            return null; // Return null if fetching fails
+            return null;
         }
     }
 
+    /**
+     * Fetches timeline tweets and bundles them with author and Twitch context.
+     *
+     * @param maxResults Max tweets to fetch.
+     * @param twitchUsername Configured Twitch username for context.
+     * @param twitchProfileImageUrl Fetched Twitch profile image URL.
+     * @param twitchChannelUrl Fetched Twitch channel URL.
+     * @return List of TweetData objects containing all context.
+     */
+    public List<TweetData> fetchTimelineTweets(int maxResults,
+                                               String twitchUsername, // Added Twitch params
+                                               String twitchProfileImageUrl,
+                                               String twitchChannelUrl) {
+        User twitterUser = fetchTwitterUserObject();
 
-    public List<TweetData> fetchTimelineTweets(int maxResults) {
-        if (this.twitterUser == null) {
-            logger.error("Cannot fetch timeline because the initial user object fetch failed for {}", this.twitterUsername);
-            return Collections.emptyList(); // Cannot proceed without user ID
+        if (twitterUser == null) {
+            logger.error("Cannot fetch timeline because the user object fetch failed for {}", this.twitterUsername);
+            return Collections.emptyList();
         }
-        String userId = this.twitterUser.getId();
+        String userId = twitterUser.getId();
         logger.info("Attempting to fetch timeline tweets for user: {} (ID: {}), max results: {}", twitterUsername, userId, maxResults);
 
         try {
-            // Request expansions and media fields
-            AdditionalParameters params = AdditionalParameters.builder()
-                    .maxResults(Math.min(maxResults, 100))
-                    .build();
-            logger.debug("Fetching timeline with parameters: {}", params);
 
-            TweetList tweetList = twitterClient.getUserTimeline(userId, params);
+            TweetList tweetList = twitterClient.getUserTimeline(userId);
 
             if (tweetList == null || tweetList.getData() == null) {
                 logger.warn("No tweets found or error fetching timeline for user ID: {}", userId);
@@ -86,17 +93,17 @@ public class TwitterService {
             List<TweetV2.MediaEntityV2> includedMedia = (tweetList.getIncludes() != null && tweetList.getIncludes().getMedia() != null)
                     ? tweetList.getIncludes().getMedia() : Collections.emptyList();
 
-            // Prepare author details (use fetched user object)
-            String authorName = this.twitterUser.getName(); // Display name
-            String authorProfileUrl = "https://x.com/" + this.twitterUser.getName(); // Use username for URL
-            String authorProfileImageUrl = this.twitterUser.getProfileImageUrl(); // URL fetched earlier
+            String authorName = twitterUser.getName();
+            String authorProfileUrl = "https://x.com/" + twitterUser.getName();
+            String authorProfileImageUrl = twitterUser.getProfileImageUrl();
 
             for (Tweet tweet : tweetList.getData()) {
                 String tweetUrl = "https://x.com/" + this.twitterUsername + "/status/" + tweet.getId();
+                LocalDateTime createdAt = tweet.getCreatedAt();
                 List<String> imageUrls = new ArrayList<>();
 
                 if (tweet.getAttachments() != null && tweet.getAttachments().getMediaKeys() != null) {
-                    List<String> mediaKeys = List.of(tweet.getAttachments().getMediaKeys()); // Convert array
+                    List<String> mediaKeys = Arrays.asList(tweet.getAttachments().getMediaKeys());
                     logger.debug("Tweet {} has media keys: {}", tweet.getId(), mediaKeys);
                     imageUrls = includedMedia.stream()
                             .filter(media -> mediaKeys.contains(media.getKey()) && "photo".equals(media.getType()))
@@ -108,15 +115,19 @@ public class TwitterService {
                     logger.debug("Tweet {} has no media attachments.", tweet.getId());
                 }
 
-                // Create TweetData with author info
+                // Create TweetData with all context
                 tweetDataList.add(new TweetData(
                         tweet.getId(),
                         tweet.getText(),
                         tweetUrl,
                         imageUrls,
+                        createdAt,
                         authorName,
                         authorProfileUrl,
-                        authorProfileImageUrl
+                        authorProfileImageUrl,
+                        twitchUsername, // Pass Twitch context
+                        twitchProfileImageUrl,
+                        twitchChannelUrl
                 ));
             }
             logger.info("Processed {} tweets into TweetData objects.", tweetDataList.size());
