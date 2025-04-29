@@ -42,9 +42,12 @@
         </sift>
     </appender>
 
+    <include optional="true" file="logback-includedConfig.xml" />
+    
     <root level="INFO">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE" />
-        <appender-ref ref="SIFT" /> </root>
+        <appender-ref ref="SIFT" />
+    </root>
 
 </configuration>
