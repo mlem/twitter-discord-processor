@@ -1,14 +1,15 @@
 package com.example.file;
 
-import com.example.discord.DiscordNotifier; // Keep for context if needed, but not used directly
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Comparator;
 
 /**
- * Scans the input directory and delegates the processing of each file
- * to a SingleTweetFileProcessor instance.
+ * Scans the input directory, sorts the files by name (ascending),
+ * and delegates the processing of each file to a SingleTweetFileProcessor instance.
  */
 public class TweetProcessor {
 
@@ -25,11 +26,12 @@ public class TweetProcessor {
     }
 
     /**
-     * Processes all valid files found in the input directory.
+     * Processes all valid files found in the input directory,
+     * sorting them by filename first.
      */
     public void processInputFiles() {
         logger.info("Starting scan of input directory: {}", inputDir.getAbsolutePath());
-        File[] files = inputDir.listFiles();
+        File[] files = inputDir.listFiles(); // Get the initial list of files
 
         if (files == null) {
             logger.error("Could not list files in input directory: {}. Check permissions.", inputDir.getAbsolutePath());
@@ -41,7 +43,11 @@ public class TweetProcessor {
             return;
         }
 
-        logger.info("Found {} items in input directory. Processing files...", files.length);
+        // --- Sort files by name (ascending) ---
+        // This effectively sorts by tweet ID assuming the format tweet_<id>.json
+        Arrays.sort(files, Comparator.comparing(File::getName));
+        logger.info("Found {} items in input directory. Sorted files by name.", files.length);
+        // --- End Sorting ---
 
         int fileCount = 0;
         for (File inputFile : files) {
